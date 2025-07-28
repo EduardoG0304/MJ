@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { validateEmail, validatePhone } from '@/lib/validations'; // Asume que tienes estas funciones
+import { validatePhone, validateEmail } from '../lib/validations';// Asume que tienes estas funciones
 
 export default function CheckoutPage() {
   return (
