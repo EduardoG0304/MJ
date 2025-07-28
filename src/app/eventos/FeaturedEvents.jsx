@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
-import { FiImage, FiX, FiShoppingCart, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiImage, FiX, FiShoppingCart, FiChevronLeft, FiChevronRight, FiMaximize, FiMinimize } from 'react-icons/fi';
 import Modal from 'react-modal';
 
 // Configuración del modal
@@ -22,6 +22,7 @@ export default function FeaturedEvents() {
   const [cart, setCart] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isFullscreenView, setIsFullscreenView] = useState(false);
   const router = useRouter();
   
   const supabase = createClientComponentClient();
@@ -107,17 +108,28 @@ export default function FeaturedEvents() {
     setIsModalOpen(true);
     setSelectedPhoto(null);
     setCurrentPhotoIndex(0);
+    setIsFullscreenView(false);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPhoto(null);
     setCurrentPhotoIndex(0);
+    setIsFullscreenView(false);
   };
 
   const openPhotoViewer = (photo, index) => {
     setSelectedPhoto(photo);
     setCurrentPhotoIndex(index);
+    setIsFullscreenView(false);
+  };
+
+  const openFullscreenView = () => {
+    setIsFullscreenView(true);
+  };
+
+  const closeFullscreenView = () => {
+    setIsFullscreenView(false);
   };
 
   const navigatePhotos = (direction) => {
@@ -408,7 +420,7 @@ export default function FeaturedEvents() {
                     <img
                       src={`${selectedPhoto.url}?width=1000&quality=90`}
                       alt="Foto seleccionada"
-                      className="w-full max-h-[65vh] object-contain mx-auto"
+                      className={`w-full ${isFullscreenView ? 'h-[80vh]' : 'max-h-[65vh]'} object-contain mx-auto`}
                     />
                     
                     {/* Navegación */}
@@ -438,6 +450,15 @@ export default function FeaturedEvents() {
                         <span>Foto {currentPhotoIndex + 1} de {eventPhotos[selectedEvent.id]?.length}</span>
                       </div>
                     </div>
+                    
+                    {/* Botón de vista ampliada */}
+                    <button
+                      onClick={isFullscreenView ? closeFullscreenView : openFullscreenView}
+                      className="absolute top-4 right-4 bg-black/70 text-white p-3 rounded-full hover:bg-black transition-colors shadow-lg"
+                      title={isFullscreenView ? 'Salir de vista ampliada' : 'Ver en pantalla completa'}
+                    >
+                      {isFullscreenView ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
+                    </button>
                   </div>
                   
                   {/* Info y acciones de la foto */}
