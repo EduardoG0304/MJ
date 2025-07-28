@@ -1,5 +1,6 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
+import ModalProvider from '@/components/modal-provider'; // Ajusta la ruta según tu estructura
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -12,7 +13,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <body className={`${inter.className} bg-white text-gray-900`}>
-        <div className="min-h-screen flex flex-col">
+        <div id="root" className="min-h-screen flex flex-col">
+          <ModalProvider /> {/* 👈 Configura react-modal */}
           {children}
         </div>
       </body>
