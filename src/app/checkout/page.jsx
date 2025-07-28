@@ -1,9 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+// Componente principal envuelto en Suspense
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-24 min-h-screen flex items-center justify-center">Cargando tu pedido...</div>}>
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+
+// Componente que contiene la lógica de checkout
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -47,18 +57,14 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     
     try {
-      // Aquí podrías enviar los datos a tu backend o servicio de correo
       console.log('Datos enviados:', {
         ...formData,
         items,
         total
       });
       
-      // Simular envío
       await new Promise(resolve => setTimeout(resolve, 1500));
       setSubmitSuccess(true);
-      
-      // Limpiar carrito
       localStorage.removeItem('photoCart');
     } catch (error) {
       console.error('Error al enviar:', error);
@@ -73,7 +79,7 @@ export default function CheckoutPage() {
         <div className="text-center max-w-md">
           <h1 className="text-3xl font-bold mb-4">¡Gracias por tu compra!</h1>
           <p className="text-lg mb-6">
-            Hemos recibido tu pedido. Nos pondremos en contacto contigo a la brevedad para coordinar la entrega.
+            Hemos recibido tu pedido. Nos pondremos en contacto contigo a la brevedad.
           </p>
           <p className="text-gray-600">
             Número de referencia: #{Math.random().toString(36).substring(2, 10).toUpperCase()}
@@ -89,7 +95,6 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-bold mb-8">Finalizar Compra</h1>
         
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Resumen de compra */}
           <div className="bg-gray-50 p-6 rounded-lg">
             <h2 className="text-xl font-bold mb-4">Tu pedido</h2>
             
@@ -113,11 +118,10 @@ export default function CheckoutPage() {
             </div>
           </div>
           
-          {/* Formulario de contacto */}
           <div>
             <h2 className="text-xl font-bold mb-4">Información de contacto</h2>
             <p className="text-gray-600 mb-6">
-              Completa tus datos y nos pondremos en contacto contigo para coordinar la entrega.
+              Completa tus datos y nos pondremos en contacto contigo.
             </p>
             
             <form onSubmit={handleSubmit}>
