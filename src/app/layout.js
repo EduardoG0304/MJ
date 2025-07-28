@@ -1,6 +1,6 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
-import ModalProvider from '@/components/modal-provider'; // Ajusta la ruta según tu estructura
+import ModalProvider from './components/modal-provider'; // Ajusta la ruta según tu estructura
 
 const inter = Inter({ subsets: ['latin'] });
 
