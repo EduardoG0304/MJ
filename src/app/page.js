@@ -2,7 +2,6 @@
 
 import HeroSection from './components/HeroSection';
 import Navbar from './components/Navbar';
-import HeroSearch from './components/HeroSearch';
 import HowItWorks from './components/HowItWorks';
 import Testimonials from './components/Testimonials';
 import Newsletter from './components/Newsletter';
@@ -16,7 +15,7 @@ export default function Home() {
       
       <main className="flex-grow">
         <HeroSection>
-          <HeroSearch />
+          
         </HeroSection>
         
         <section className="py-16 bg-gray-100">
