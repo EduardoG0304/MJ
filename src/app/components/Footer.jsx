@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { FiInstagram } from 'react-icons/fi';
+import { FaTiktok } from 'react-icons/fa';
 
 export default function Footer() {
   return (
@@ -17,13 +18,22 @@ export default function Footer() {
           
           <div className="flex space-x-6 items-center">
             <Link 
-              href="https://www.instagram.com/tu_cuenta_de_instagram" 
+              href="https://www.instagram.com/mjfotografia__" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-white transition"
               aria-label="Instagram"
             >
               <FiInstagram className="w-6 h-6" />
+            </Link>
+            <Link 
+              href="https://www.tiktok.com/@mjfotografia__" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition"
+              aria-label="TikTok"
+            >
+              <FaTiktok className="w-5 h-5" />
             </Link>
             <Link href="#" className="text-gray-400 hover:text-white transition">Contacto</Link>
           </div>
