@@ -8,7 +8,7 @@ export const metadata = {
   title: 'MJ SPORT PHOTOGRAPHY - Fotografías de Eventos Deportivos',
   description: 'Encuentra las mejores fotografías de tus eventos deportivos. Búsqueda por número o rostro.',
   icons: {
-    icon: '/images/logo_mj.ico', // Ruta corregida
+    icon: '/images/mj_logo.ico', // Ruta corregida
   },
 };
 
