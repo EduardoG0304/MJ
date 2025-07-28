@@ -167,10 +167,9 @@ export default function FeaturedEvents() {
 
     setIsModalOpen(false);
 
-    const queryParams = new URLSearchParams({
-      items: JSON.stringify(cart),
-      total: calculateTotal().toFixed(2)
-    });
+    const queryParams = new URLSearchParams();
+    queryParams.append('items', JSON.stringify(cart));
+    queryParams.append('total', calculateTotal().toFixed(2));
 
     router.push(`/checkout?${queryParams.toString()}`);
   };

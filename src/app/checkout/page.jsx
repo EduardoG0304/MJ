@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-// Componente principal envuelto en Suspense
 export default function CheckoutPage() {
   return (
     <Suspense fallback={<div className="container mx-auto px-4 py-24 min-h-screen flex items-center justify-center">Cargando tu pedido...</div>}>
@@ -12,7 +11,6 @@ export default function CheckoutPage() {
   );
 }
 
-// Componente que contiene la lógica de checkout
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const [items, setItems] = useState([]);
@@ -27,7 +25,7 @@ function CheckoutContent() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   useEffect(() => {
-    // Obtener items del query string
+    // Obtener y procesar items del query string
     const itemsParam = searchParams.get('items');
     const totalParam = searchParams.get('total');
     
