@@ -33,7 +33,6 @@ export default function FeaturedEvents() {
         setLoading(true);
         setError(null);
         
-        // Consulta optimizada para obtener eventos con sus fotos
         const { data: eventosData, error: eventosError } = await supabase
           .from('eventos')
           .select(`
@@ -49,11 +48,10 @@ export default function FeaturedEvents() {
             )
           `)
           .order('fecha', { ascending: false })
-          .lte('fecha', new Date().toISOString()); // Solo eventos hasta hoy
+          .lte('fecha', new Date().toISOString());
 
         if (eventosError) throw eventosError;
 
-        // Procesar datos
         const processedEvents = eventosData.map(evento => {
           const formattedDate = new Date(evento.fecha).toLocaleDateString('es-ES', {
             day: '2-digit',
@@ -61,7 +59,6 @@ export default function FeaturedEvents() {
             year: 'numeric'
           });
 
-          // Obtener URL de la primera foto para la miniatura
           const primeraFotoUrl = evento.fotos?.[0]?.url || null;
 
           return {
@@ -74,7 +71,6 @@ export default function FeaturedEvents() {
 
         setEvents(processedEvents);
         
-        // Crear mapa de fotos por evento
         const fotosPorEvento = {};
         eventosData.forEach(evento => {
           fotosPorEvento[evento.id] = evento.fotos || [];
@@ -89,7 +85,6 @@ export default function FeaturedEvents() {
       }
     };
 
-    // Cargar carrito desde localStorage
     const savedCart = localStorage.getItem('photoCart');
     if (savedCart) {
       setCart(JSON.parse(savedCart));
@@ -146,10 +141,8 @@ export default function FeaturedEvents() {
       const existingItemIndex = prevCart.findIndex(item => item.id === photo.id);
       
       if (existingItemIndex >= 0) {
-        // Remover si ya está en el carrito
         return prevCart.filter(item => item.id !== photo.id);
       } else {
-        // Agregar si no está en el carrito
         return [...prevCart, {
           id: photo.id,
           url: photo.url,
@@ -167,13 +160,19 @@ export default function FeaturedEvents() {
   };
 
   const handleCheckout = () => {
-    router.push({
-      pathname: '/checkout',
-      query: { 
-        items: JSON.stringify(cart),
-        total: calculateTotal().toFixed(2)
-      }
+    if (cart.length === 0) {
+      alert('El carrito está vacío');
+      return;
+    }
+
+    setIsModalOpen(false);
+
+    const queryParams = new URLSearchParams({
+      items: JSON.stringify(cart),
+      total: calculateTotal().toFixed(2)
     });
+
+    router.push(`/checkout?${queryParams.toString()}`);
   };
 
   const getShortName = (name) => {
@@ -211,7 +210,6 @@ export default function FeaturedEvents() {
 
   return (
     <div className="container mx-auto px-4 py-24">
-      {/* Encabezado */}
       <motion.div 
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
@@ -223,7 +221,6 @@ export default function FeaturedEvents() {
         <div className="w-24 h-1 bg-black mx-auto"></div>
       </motion.div>
       
-      {/* Carrito flotante */}
       {cart.length > 0 && (
         <motion.div 
           initial={{ y: 100, opacity: 0 }}
@@ -243,7 +240,6 @@ export default function FeaturedEvents() {
         </motion.div>
       )}
       
-      {/* Lista de eventos */}
       {events.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-xl text-gray-600">No hay eventos disponibles actualmente</p>
@@ -264,7 +260,6 @@ export default function FeaturedEvents() {
                 className="relative overflow-hidden rounded-xl border border-gray-200 shadow-lg h-full flex flex-col"
                 onClick={() => openEventModal(event)}
               >
-                {/* Miniaturas de eventos */}
                 <div className="h-64 bg-gray-900 flex items-center justify-center relative overflow-hidden flex-grow">
                   {event.primeraFotoUrl ? (
                     <img
@@ -294,7 +289,6 @@ export default function FeaturedEvents() {
                   </div>
                 </div>
                 
-                {/* Información del evento */}
                 <div className="p-6 bg-white">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-gray-500 flex items-center gap-1">
@@ -314,7 +308,6 @@ export default function FeaturedEvents() {
         </div>
       )}
 
-      {/* Modal para ver fotos del evento */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={closeModal}
@@ -324,7 +317,6 @@ export default function FeaturedEvents() {
       >
         {selectedEvent && (
           <div className="relative">
-            {/* Botón para cerrar */}
             <button 
               onClick={closeModal}
               className="absolute top-2 right-2 text-gray-700 hover:text-black p-1"
@@ -332,7 +324,6 @@ export default function FeaturedEvents() {
               <FiX size={24} />
             </button>
             
-            {/* Encabezado del modal */}
             <div className="mb-6">
               <h3 className="text-2xl font-bold">{selectedEvent.nombre}</h3>
               <p className="text-gray-600">{selectedEvent.formattedDate}</p>
@@ -341,9 +332,7 @@ export default function FeaturedEvents() {
               )}
             </div>
             
-            {/* Contenido del modal (galería o vista individual) */}
             {!selectedPhoto ? (
-              // Vista de galería
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {eventPhotos[selectedEvent.id]?.map((photo, index) => (
                   <div key={photo.id} className="relative group">
@@ -374,7 +363,6 @@ export default function FeaturedEvents() {
                 ))}
               </div>
             ) : (
-              // Vista individual de foto
               <div className="relative">
                 <button
                   onClick={() => setSelectedPhoto(null)}
@@ -390,7 +378,6 @@ export default function FeaturedEvents() {
                     className="w-full max-h-[70vh] object-contain mx-auto"
                   />
                   
-                  {/* Controles de navegación */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -411,7 +398,6 @@ export default function FeaturedEvents() {
                     <FiChevronRight size={24} />
                   </button>
                   
-                  {/* Indicador de posición */}
                   <div className="absolute bottom-4 left-0 right-0 text-center">
                     <div className="inline-flex bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
                       <span>Foto {currentPhotoIndex + 1} de {eventPhotos[selectedEvent.id]?.length}</span>
@@ -419,7 +405,6 @@ export default function FeaturedEvents() {
                   </div>
                 </div>
                 
-                {/* Información y acciones */}
                 <div className="mt-4 flex justify-between items-center">
                   <div>
                     <p className="font-bold">${selectedPhoto.precio?.toFixed(2) || '0.00'}</p>
