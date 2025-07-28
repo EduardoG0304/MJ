@@ -174,19 +174,13 @@ export default function FeaturedEvents() {
     router.push(`/checkout?${queryParams.toString()}`);
   };
 
-  const getShortName = (name) => {
-    if (!name) return 'Foto';
-    if (name.length > 20) {
-      const extension = name.split('.').pop();
-      return `${name.substring(0, 15)}...${extension}`;
-    }
-    return name;
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-24 min-h-[60vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+          <p className="text-gray-600">Cargando eventos...</p>
+        </div>
       </div>
     );
   }
@@ -194,11 +188,11 @@ export default function FeaturedEvents() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-24 min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <p className="text-xl text-red-500 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors duration-300"
           >
             Reintentar
           </button>
@@ -208,63 +202,74 @@ export default function FeaturedEvents() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-24">
+    <div className="container mx-auto px-4 py-16 md:py-24">
+      {/* Sección de título */}
       <motion.div 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
+        initial={{ opacity: 0, y: -20 }}
+        whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
         viewport={{ once: true, margin: "-100px" }}
-        className="text-center mb-16"
+        className="text-center mb-12 md:mb-16"
       >
-        <h2 className="text-4xl md:text-5xl font-bold mb-4 text-black">EVENTOS DESTACADOS</h2>
-        <div className="w-24 h-1 bg-black mx-auto"></div>
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-black font-serif tracking-tight">
+          Eventos Destacados
+        </h2>
+        <div className="w-24 h-1 bg-gradient-to-r from-black to-gray-300 mx-auto"></div>
+        <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
+          Explora nuestros eventos pasados y descubre las mejores fotografías
+        </p>
       </motion.div>
       
+      {/* Carrito flotante */}
       {cart.length > 0 && (
         <motion.div 
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-xl border border-gray-200 z-50"
+          transition={{ type: 'spring', stiffness: 300 }}
+          className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
         >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold">Carrito ({cart.length})</h3>
-            <span className="font-bold">${calculateTotal().toFixed(2)}</span>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
+            <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
           </div>
           <button 
             onClick={handleCheckout}
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className="w-full bg-gradient-to-r from-black to-gray-800 text-white py-2.5 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2"
           >
+            <FiShoppingCart />
             Ir a pagar
           </button>
         </motion.div>
       )}
       
+      {/* Lista de eventos */}
       {events.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-xl text-gray-600">No hay eventos disponibles actualmente</p>
+        <div className="text-center py-12 bg-gray-50 rounded-xl">
+          <p className="text-lg text-gray-600">No hay eventos disponibles actualmente</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {events.map((event, index) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.15 }}
+              transition={{ duration: 0.6, delay: index * 0.1 }}
               viewport={{ once: true, margin: "-50px" }}
-              whileHover={{ y: -10 }}
+              whileHover={{ y: -5 }}
               className="group cursor-pointer"
             >
               <div 
-                className="relative overflow-hidden rounded-xl border border-gray-200 shadow-lg h-full flex flex-col"
+                className="relative overflow-hidden rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col bg-white"
                 onClick={() => openEventModal(event)}
               >
-                <div className="h-64 bg-gray-900 flex items-center justify-center relative overflow-hidden flex-grow">
+                {/* Imagen del evento */}
+                <div className="h-64 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden flex-grow">
                   {event.primeraFotoUrl ? (
                     <img
                       src={`${event.primeraFotoUrl}?width=500&quality=80`}
                       alt={`Miniatura de ${event.nombre}`}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                       onError={(e) => {
                         e.target.onerror = null;
@@ -273,31 +278,41 @@ export default function FeaturedEvents() {
                     />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <FiImage className="text-white text-4xl opacity-50" />
+                      <FiImage className="text-white text-4xl opacity-30" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
-                  <div className="relative z-20 text-center p-6">
-                    <h3 className="text-2xl font-bold text-white mb-2">{event.nombre}</h3>
-                    <p className="text-gray-300">{event.formattedDate}</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent z-10"></div>
+                  
+                  {/* Información del evento */}
+                  <div className="relative z-20 text-center p-6 w-full mt-auto">
+                    <h3 className="text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">{event.nombre}</h3>
+                    <p className="text-gray-300 text-sm md:text-base">{event.formattedDate}</p>
                     {event.descripcion && (
-                      <p className="text-gray-300 text-sm mt-2 line-clamp-2">
+                      <p className="text-gray-300 text-sm mt-3 line-clamp-3">
                         {event.descripcion}
                       </p>
                     )}
                   </div>
+                  
+                  {/* Badge de cantidad de fotos */}
+                  <div className="absolute top-4 right-4 z-20 bg-black/70 text-white text-xs px-2.5 py-1 rounded-full">
+                    {event.totalFotos} {event.totalFotos === 1 ? 'foto' : 'fotos'}
+                  </div>
                 </div>
                 
-                <div className="p-6 bg-white">
+                {/* Pie de tarjeta */}
+                <div className="p-5 bg-white border-t border-gray-100">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-gray-500 flex items-center gap-1">
-                      <FiImage className="inline" /> {event.totalFotos.toLocaleString()} fotos
+                    <span className="text-gray-500 text-sm flex items-center gap-1.5">
+                      <FiImage className="text-gray-400" /> 
+                      <span>{event.totalFotos.toLocaleString()} {event.totalFotos === 1 ? 'foto' : 'fotos'}</span>
                     </span>
-                    <span className="text-black font-medium">{event.formattedDate}</span>
+                    <span className="text-gray-700 font-medium text-sm">{event.formattedDate}</span>
                   </div>
                   <button 
-                    className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
+                    className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-0.5 flex items-center justify-center gap-2"
                   >
+                    <FiImage size={16} />
                     Ver fotos
                   </button>
                 </div>
@@ -307,122 +322,145 @@ export default function FeaturedEvents() {
         </div>
       )}
 
+      {/* Modal de fotos */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={closeModal}
         contentLabel="Fotos del evento"
-        className="modal-content bg-white rounded-lg p-6 max-w-6xl w-full mx-4 my-12 outline-none max-h-[90vh] overflow-auto"
-        overlayClassName="modal-overlay fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+        className="modal-content bg-white rounded-xl p-0 max-w-6xl w-full mx-4 my-8 outline-none max-h-[90vh] overflow-hidden"
+        overlayClassName="modal-overlay fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        closeTimeoutMS={300}
       >
         {selectedEvent && (
           <div className="relative">
-            <button 
-              onClick={closeModal}
-              className="absolute top-2 right-2 text-gray-700 hover:text-black p-1"
-            >
-              <FiX size={24} />
-            </button>
-            
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold">{selectedEvent.nombre}</h3>
-              <p className="text-gray-600">{selectedEvent.formattedDate}</p>
-              {selectedEvent.descripcion && (
-                <p className="text-gray-600 mt-2">{selectedEvent.descripcion}</p>
-              )}
+            {/* Header del modal */}
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{selectedEvent.nombre}</h3>
+                <p className="text-gray-600 text-sm">{selectedEvent.formattedDate}</p>
+              </div>
+              <button 
+                onClick={closeModal}
+                className="text-gray-500 hover:text-black p-1 transition-colors"
+              >
+                <FiX size={24} />
+              </button>
             </div>
             
-            {!selectedPhoto ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {eventPhotos[selectedEvent.id]?.map((photo, index) => (
-                  <div key={photo.id} className="relative group">
+            {/* Contenido del modal */}
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 73px)' }}>
+              {selectedEvent.descripcion && (
+                <p className="text-gray-600 mb-6 px-2">{selectedEvent.descripcion}</p>
+              )}
+              
+              {!selectedPhoto ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {eventPhotos[selectedEvent.id]?.map((photo, index) => (
+                    <motion.div 
+                      key={photo.id} 
+                      className="relative group"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                    >
+                      <img
+                        src={`${photo.url}?width=300&quality=80`}
+                        alt={`Foto ${index + 1}`}
+                        className="w-full h-48 sm:h-56 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                        onClick={() => openPhotoViewer(photo, index)}
+                      />
+                      <div className="absolute inset-0 rounded-lg group-hover:bg-black/10 transition-colors"></div>
+                      
+                      {/* Precio */}
+                      <div className="absolute bottom-2 left-2 bg-black/80 text-white text-sm px-2 py-1 rounded">
+                        ${photo.precio?.toFixed(2) || '0.00'}
+                      </div>
+                      
+                      {/* Botón de carrito */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCartItem(photo);
+                        }}
+                        className={`absolute top-2 right-2 p-2 rounded-full transition-colors ${
+                          cart.some(item => item.id === photo.id) 
+                            ? 'bg-green-500 text-white shadow-md' 
+                            : 'bg-white/90 text-gray-800 hover:bg-gray-100 shadow-sm'
+                        }`}
+                        title={cart.some(item => item.id === photo.id) ? 'Quitar del carrito' : 'Agregar al carrito'}
+                      >
+                        <FiShoppingCart size={16} />
+                      </button>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setSelectedPhoto(null)}
+                    className="mb-4 flex items-center text-gray-600 hover:text-black transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
+                  >
+                    <FiChevronLeft className="mr-1" /> Volver a la galería
+                  </button>
+                  
+                  {/* Visor de foto */}
+                  <div className="relative bg-gray-50 rounded-xl overflow-hidden shadow-inner">
                     <img
-                      src={`${photo.url}?width=300&quality=80`}
-                      alt={`Foto ${index + 1}`}
-                      className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => openPhotoViewer(photo, index)}
+                      src={`${selectedPhoto.url}?width=1000&quality=90`}
+                      alt="Foto seleccionada"
+                      className="w-full max-h-[65vh] object-contain mx-auto"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="text-white font-bold">${photo.precio?.toFixed(2) || '0.00'}</p>
-                    </div>
+                    
+                    {/* Navegación */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleCartItem(photo);
+                        navigatePhotos('prev');
                       }}
-                      className={`absolute top-2 right-2 p-2 rounded-full ${
-                        cart.some(item => item.id === photo.id) 
-                          ? 'bg-green-500 text-white' 
-                          : 'bg-white text-black hover:bg-gray-200'
-                      }`}
-                      title={cart.some(item => item.id === photo.id) ? 'Quitar del carrito' : 'Agregar al carrito'}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/70 text-white p-3 rounded-full hover:bg-black transition-colors shadow-lg"
                     >
-                      <FiShoppingCart />
+                      <FiChevronLeft size={24} />
                     </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="relative">
-                <button
-                  onClick={() => setSelectedPhoto(null)}
-                  className="mb-4 flex items-center text-gray-700 hover:text-black"
-                >
-                  <FiChevronLeft className="mr-1" /> Volver a la galería
-                </button>
-                
-                <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                  <img
-                    src={`${selectedPhoto.url}?width=1000&quality=90`}
-                    alt="Foto seleccionada"
-                    className="w-full max-h-[70vh] object-contain mx-auto"
-                  />
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigatePhotos('prev');
-                    }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-80"
-                  >
-                    <FiChevronLeft size={24} />
-                  </button>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigatePhotos('next');
-                    }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-80"
-                  >
-                    <FiChevronRight size={24} />
-                  </button>
-                  
-                  <div className="absolute bottom-4 left-0 right-0 text-center">
-                    <div className="inline-flex bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-                      <span>Foto {currentPhotoIndex + 1} de {eventPhotos[selectedEvent.id]?.length}</span>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigatePhotos('next');
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/70 text-white p-3 rounded-full hover:bg-black transition-colors shadow-lg"
+                    >
+                      <FiChevronRight size={24} />
+                    </button>
+                    
+                    {/* Contador */}
+                    <div className="absolute bottom-4 left-0 right-0 text-center">
+                      <div className="inline-flex bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
+                        <span>Foto {currentPhotoIndex + 1} de {eventPhotos[selectedEvent.id]?.length}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="mt-4 flex justify-between items-center">
-                  <div>
-                    <p className="font-bold">${selectedPhoto.precio?.toFixed(2) || '0.00'}</p>
-                    <p className="text-sm text-gray-600">{getShortName(selectedPhoto.nombre)}</p>
+                  
+                  {/* Info y acciones de la foto */}
+                  <div className="mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                      <p className="font-bold text-lg">${selectedPhoto.precio?.toFixed(2) || '0.00'}</p>
+                      <p className="text-gray-600">{selectedPhoto.nombre || `Foto ${currentPhotoIndex + 1}`}</p>
+                    </div>
+                    <button
+                      onClick={() => toggleCartItem(selectedPhoto)}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg transition-colors ${
+                        cart.some(item => item.id === selectedPhoto.id) 
+                          ? 'bg-green-500 text-white shadow-md' 
+                          : 'bg-black text-white hover:bg-gray-800 shadow-sm'
+                      }`}
+                    >
+                      <FiShoppingCart />
+                      {cart.some(item => item.id === selectedPhoto.id) ? 'En carrito' : 'Agregar al carrito'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => toggleCartItem(selectedPhoto)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                      cart.some(item => item.id === selectedPhoto.id) 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-black text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    <FiShoppingCart />
-                    {cart.some(item => item.id === selectedPhoto.id) ? 'En carrito' : 'Agregar al carrito'}
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </Modal>
