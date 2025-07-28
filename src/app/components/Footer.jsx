@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FiInstagram } from 'react-icons/fi';
 
 export default function Footer() {
   return (
@@ -14,8 +15,16 @@ export default function Footer() {
             <p className="text-gray-400 mt-2">Capturando tus momentos deportivos</p>
           </div>
           
-          <div className="flex space-x-6">
-            <Link href="#" className="text-gray-400 hover:text-white transition">Instagram</Link>
+          <div className="flex space-x-6 items-center">
+            <Link 
+              href="https://www.instagram.com/tu_cuenta_de_instagram" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition"
+              aria-label="Instagram"
+            >
+              <FiInstagram className="w-6 h-6" />
+            </Link>
             <Link href="#" className="text-gray-400 hover:text-white transition">Contacto</Link>
           </div>
         </div>
