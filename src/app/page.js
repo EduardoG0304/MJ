@@ -3,11 +3,11 @@
 import HeroSection from './components/HeroSection';
 import Navbar from './components/Navbar';
 import HeroSearch from './components/HeroSearch';
-import FeaturedEvents from './components/FeaturedEvents';
 import HowItWorks from './components/HowItWorks';
 import Testimonials from './components/Testimonials';
 import Newsletter from './components/Newsletter';
 import Footer from './components/Footer';
+import FeaturedEvents from './eventos/FeaturedEvents';
 
 export default function Home() {
   return (
@@ -24,7 +24,7 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">
               Eventos Destacados
             </h2>
-            <FeaturedEvents />
+            <FeaturedEvents/>
           </div>
         </section>
 
