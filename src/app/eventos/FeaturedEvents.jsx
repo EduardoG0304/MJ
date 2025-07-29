@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,7 @@ export default function FeaturedEvents() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isFullscreenView, setIsFullscreenView] = useState(false);
+  const [showCartPreview, setShowCartPreview] = useState(false);
   const router = useRouter();
   
   const supabase = createClientComponentClient();
@@ -186,6 +187,10 @@ export default function FeaturedEvents() {
     router.push(`/checkout?${queryParams.toString()}`);
   };
 
+  const toggleCartPreview = () => {
+    setShowCartPreview(!showCartPreview);
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-24 min-h-[60vh] flex items-center justify-center">
@@ -214,7 +219,7 @@ export default function FeaturedEvents() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16 md:py-24">
+    <div className="container mx-auto px-4 py-16 md:py-24 relative">
       {/* Sección de título */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
@@ -232,27 +237,97 @@ export default function FeaturedEvents() {
         </p>
       </motion.div>
       
-      {/* Carrito flotante */}
-      {cart.length > 0 && (
-        <motion.div 
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300 }}
-          className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
+      {/* Botón del carrito en la esquina superior derecha */}
+      <div className="fixed top-4 right-4 z-40">
+        <button
+          onClick={toggleCartPreview}
+          className="relative bg-white p-3 rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          aria-label="Ver carrito"
         >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
-            <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
-          </div>
-          <button 
-            onClick={handleCheckout}
-            className="w-full bg-gradient-to-r from-black to-gray-800 text-white py-2.5 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2"
+          <FiShoppingCart className="text-gray-800" size={20} />
+          {cart.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              {cart.length}
+            </span>
+          )}
+        </button>
+      </div>
+      
+      {/* Vista previa del carrito */}
+      <AnimatePresence>
+        {showCartPreview && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+            className="fixed top-20 right-4 z-40 bg-white rounded-xl shadow-2xl border border-gray-200 w-80 max-h-[70vh] overflow-hidden flex flex-col"
           >
-            <FiShoppingCart />
-            Ir a pagar
-          </button>
-        </motion.div>
-      )}
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg text-gray-800">Tu Carrito</h3>
+                <button 
+                  onClick={toggleCartPreview}
+                  className="text-gray-500 hover:text-black"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto flex-grow p-4">
+              {cart.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Tu carrito está vacío</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {cart.map((item, index) => (
+                    <li key={index} className="flex items-start gap-3 pb-3 border-b border-gray-100">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                        <img 
+                          src={`${item.url}?width=100&height=100`} 
+                          alt={item.photoName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm line-clamp-1">{item.eventName}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">{item.photoName}</p>
+                        <p className="text-sm font-bold mt-1">${item.price.toFixed(2)}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setCart(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            
+            {cart.length > 0 && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="font-bold">Total:</span>
+                  <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+                </div>
+                <button
+                  onClick={handleCheckout}
+                  className="w-full bg-black text-white py-2.5 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                >
+                  <FiShoppingCart size={16} />
+                  Ir a pagar
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Lista de eventos */}
       {events.length === 0 ? (
@@ -351,12 +426,25 @@ export default function FeaturedEvents() {
                 <h3 className="text-xl font-bold text-gray-900">{selectedEvent.nombre}</h3>
                 <p className="text-gray-600 text-sm">{selectedEvent.formattedDate}</p>
               </div>
-              <button 
-                onClick={closeModal}
-                className="text-gray-500 hover:text-black p-1 transition-colors"
-              >
-                <FiX size={24} />
-              </button>
+              <div className="flex items-center gap-4">
+                {cart.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCartPreview(!showCartPreview)}
+                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <FiShoppingCart size={18} />
+                      <span className="font-medium">{cart.length}</span>
+                    </button>
+                  </div>
+                )}
+                <button 
+                  onClick={closeModal}
+                  className="text-gray-500 hover:text-black p-1 transition-colors"
+                >
+                  <FiX size={24} />
+                </button>
+              </div>
             </div>
             
             {/* Contenido del modal */}

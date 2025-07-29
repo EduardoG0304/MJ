@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { validatePhone, validateEmail } from '../lib/validations';
 
 export default function CheckoutPage() {
@@ -25,6 +25,7 @@ function LoadingScreen() {
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [formData, setFormData] = useState({
@@ -125,6 +126,26 @@ function CheckoutContent() {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
   };
 
+  const removeItem = (indexToRemove) => {
+    const newItems = items.filter((_, index) => index !== indexToRemove);
+    setItems(newItems);
+    
+    // Recalcular el total
+    const newTotal = newItems.reduce((sum, item) => sum + item.price, 0);
+    setTotal(newTotal);
+    
+    // Actualizar la URL
+    const newParams = new URLSearchParams();
+    newParams.set('items', JSON.stringify(newItems));
+    newParams.set('total', newTotal.toFixed(2));
+    router.replace(`/checkout?${newParams.toString()}`);
+    
+    // Actualizar localStorage si es necesario
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('photoCart', JSON.stringify(newItems));
+    }
+  };
+
   if (submitSuccess) {
     return <SuccessScreen orderId={generateOrderId()} />;
   }
@@ -141,7 +162,7 @@ function CheckoutContent() {
         </header>
         
         <div className="grid lg:grid-cols-2 gap-10">
-          <OrderSummary items={items} total={total} />
+          <OrderSummary items={items} total={total} removeItem={removeItem} />
           
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-black mb-6">Información de contacto</h2>
@@ -160,7 +181,7 @@ function CheckoutContent() {
   );
 }
 
-function OrderSummary({ items, total }) {
+function OrderSummary({ items, total, removeItem }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
       <h2 className="text-2xl font-bold text-black mb-6">Resumen del pedido</h2>
@@ -168,17 +189,38 @@ function OrderSummary({ items, total }) {
       {items.length === 0 ? (
         <div className="py-8 text-center">
           <p className="text-gray-600">No hay items en tu carrito</p>
+          <a 
+            href="/" 
+            className="mt-4 inline-flex items-center text-black font-medium hover:text-gray-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Volver a la tienda
+          </a>
         </div>
       ) : (
         <>
           <div className="divide-y divide-gray-200">
             {items.map((item, index) => (
-              <div key={`${item.eventName}-${index}`} className="py-4 flex justify-between items-start">
+              <div key={`${item.eventName}-${index}`} className="py-4 flex justify-between items-start group relative">
                 <div className="flex-1">
                   <p className="font-semibold text-black">{item.eventName}</p>
                   <p className="text-sm text-gray-700 mt-1">{item.photoName}</p>
                 </div>
-                <p className="font-medium text-black ml-4">${item.price.toFixed(2)}</p>
+                <div className="flex items-center gap-4">
+                  <p className="font-medium text-black">${item.price.toFixed(2)}</p>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                    aria-label="Eliminar producto"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -244,7 +286,7 @@ function ContactForm({ formData, formErrors, isSubmitting, handleInputChange, ha
       
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !items.length}
         className="w-full bg-black text-white py-3.5 px-6 rounded-lg hover:bg-gray-900 transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center font-medium"
       >
         {isSubmitting ? (
