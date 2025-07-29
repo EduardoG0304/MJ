@@ -110,6 +110,7 @@ export default function FeaturedEvents() {
     setSelectedPhoto(null);
     setCurrentPhotoIndex(0);
     setIsFullscreenView(false);
+    setShowCartPreview(false);
   };
 
   const closeModal = () => {
@@ -117,6 +118,7 @@ export default function FeaturedEvents() {
     setSelectedPhoto(null);
     setCurrentPhotoIndex(0);
     setIsFullscreenView(false);
+    setShowCartPreview(false);
   };
 
   const openPhotoViewer = (photo, index) => {
@@ -179,6 +181,7 @@ export default function FeaturedEvents() {
     }
 
     setIsModalOpen(false);
+    setShowCartPreview(false);
 
     const queryParams = new URLSearchParams();
     queryParams.append('items', JSON.stringify(cart));
@@ -427,17 +430,17 @@ export default function FeaturedEvents() {
                 <p className="text-gray-600 text-sm">{selectedEvent.formattedDate}</p>
               </div>
               <div className="flex items-center gap-4">
-                {cart.length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowCartPreview(!showCartPreview)}
-                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <FiShoppingCart size={18} />
-                      <span className="font-medium">{cart.length}</span>
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={toggleCartPreview}
+                  className="relative flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <FiShoppingCart size={18} />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
                 <button 
                   onClick={closeModal}
                   className="text-gray-500 hover:text-black p-1 transition-colors"
@@ -496,12 +499,25 @@ export default function FeaturedEvents() {
                 </div>
               ) : (
                 <div className="relative">
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="mb-4 flex items-center text-gray-600 hover:text-black transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
-                  >
-                    <FiChevronLeft className="mr-1" /> Volver a la galería
-                  </button>
+                  <div className="flex justify-between items-center mb-4">
+                    <button
+                      onClick={() => setSelectedPhoto(null)}
+                      className="flex items-center text-gray-600 hover:text-black transition-colors px-2 py-1 rounded-lg hover:bg-gray-100"
+                    >
+                      <FiChevronLeft className="mr-1" /> Volver a la galería
+                    </button>
+                    <button
+                      onClick={toggleCartPreview}
+                      className="relative flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <FiShoppingCart size={18} />
+                      {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                          {cart.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                   
                   {/* Visor de foto */}
                   <div className="relative bg-gray-50 rounded-xl overflow-hidden shadow-inner">
