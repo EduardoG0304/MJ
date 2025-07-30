@@ -41,7 +41,7 @@ function CheckoutContent() {
   useEffect(() => {
     const itemsParam = searchParams.get('items');
     const totalParam = searchParams.get('total');
-    
+
     try {
       if (itemsParam) {
         const decodedItems = decodeURIComponent(itemsParam);
@@ -53,7 +53,7 @@ function CheckoutContent() {
         if (savedCart) {
           const parsedItems = JSON.parse(savedCart);
           setItems(Array.isArray(parsedItems) ? parsedItems : []);
-          
+
           // Actualizar URL para reflejar el localStorage
           const newTotal = parsedItems.reduce((sum, item) => sum + (item.price || 0), 0);
           const newParams = new URLSearchParams();
@@ -62,7 +62,7 @@ function CheckoutContent() {
           router.replace(`/checkout?${newParams.toString()}`);
         }
       }
-      
+
       if (totalParam) {
         const decodedTotal = decodeURIComponent(totalParam);
         const parsedTotal = parseFloat(decodedTotal);
@@ -85,7 +85,7 @@ function CheckoutContent() {
       ...prev,
       [name]: value
     }));
-    
+
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -93,7 +93,7 @@ function CheckoutContent() {
 
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formData.nombre.trim()) errors.nombre = 'Nombre es requerido';
     if (!formData.email.trim()) {
       errors.email = 'Email es requerido';
@@ -105,19 +105,22 @@ function CheckoutContent() {
     } else if (!validatePhone(formData.telefono)) {
       errors.telefono = 'Teléfono no válido';
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
+      // Aquí deberías integrar tu pasarela de pago
+      // Por ahora simulamos un pago exitoso
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
@@ -126,25 +129,26 @@ function CheckoutContent() {
         body: JSON.stringify({
           ...formData,
           items: items.map(item => ({
-            id: item.id, // ID de la foto en la tabla fotos
+            id: item.id,
             eventName: item.eventName,
             photoName: item.photoName,
-            price: item.price
+            price: item.price,
+            url: item.url // Asegúrate de incluir la URL de descarga
           })),
           total,
           orderId: generateOrderId()
         })
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) throw new Error(result.error || 'Error en el pedido');
-      
+
       setSubmitSuccess(true);
       localStorage.removeItem('photoCart');
     } catch (error) {
       console.error('Error al enviar:', error);
-      alert('Hubo un error al procesar tu pedido. Por favor intenta nuevamente.');
+      alert(error.message || 'Hubo un error al procesar tu pedido. Por favor intenta nuevamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -157,17 +161,17 @@ function CheckoutContent() {
   const removeItem = (indexToRemove) => {
     const newItems = items.filter((_, index) => index !== indexToRemove);
     setItems(newItems);
-    
+
     // Recalcular el total
     const newTotal = newItems.reduce((sum, item) => sum + (item.price || 0), 0);
     setTotal(newTotal);
-    
+
     // Actualizar la URL
     const newParams = new URLSearchParams();
     newParams.set('items', JSON.stringify(newItems));
     newParams.set('total', newTotal.toFixed(2));
     router.replace(`/checkout?${newParams.toString()}`);
-    
+
     // Actualizar localStorage si es necesario
     if (typeof window !== 'undefined') {
       localStorage.setItem('photoCart', JSON.stringify(newItems));
@@ -188,14 +192,14 @@ function CheckoutContent() {
             Revisa tu pedido y completa tus datos para proceder con el pago
           </p>
         </header>
-        
+
         <div className="grid lg:grid-cols-2 gap-10">
           <OrderSummary items={items} total={total} removeItem={removeItem} />
-          
+
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-black mb-6">Información de contacto</h2>
-            
-            <ContactForm 
+
+            <ContactForm
               formData={formData}
               formErrors={formErrors}
               isSubmitting={isSubmitting}
@@ -214,12 +218,12 @@ function OrderSummary({ items, total, removeItem }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
       <h2 className="text-2xl font-bold text-black mb-6">Resumen del pedido</h2>
-      
+
       {items.length === 0 ? (
         <div className="py-8 text-center">
           <p className="text-gray-600">No hay items en tu carrito</p>
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="mt-4 inline-flex items-center text-black font-medium hover:text-gray-700 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -253,7 +257,7 @@ function OrderSummary({ items, total, removeItem }) {
               </div>
             ))}
           </div>
-          
+
           <div className="border-t border-gray-200 pt-6 mt-6">
             <div className="flex justify-between items-center">
               <span className="font-bold text-lg text-black">Total</span>
@@ -266,13 +270,13 @@ function OrderSummary({ items, total, removeItem }) {
   );
 }
 
-function ContactForm({ 
-  formData, 
-  formErrors, 
-  isSubmitting, 
-  handleInputChange, 
+function ContactForm({
+  formData,
+  formErrors,
+  isSubmitting,
+  handleInputChange,
   handleSubmit,
-  items 
+  items
 }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -285,7 +289,7 @@ function ContactForm({
         onChange={handleInputChange}
         error={formErrors.nombre}
       />
-      
+
       <FormField
         label="Email *"
         id="email"
@@ -295,7 +299,7 @@ function ContactForm({
         onChange={handleInputChange}
         error={formErrors.email}
       />
-      
+
       <FormField
         label="Teléfono *"
         id="telefono"
@@ -305,7 +309,7 @@ function ContactForm({
         onChange={handleInputChange}
         error={formErrors.telefono}
       />
-      
+
       <div>
         <label htmlFor="mensaje" className="block text-sm font-medium text-gray-900 mb-2">
           Mensaje adicional (opcional)
@@ -319,7 +323,7 @@ function ContactForm({
           className={`w-full px-4 py-3 border ${formErrors.mensaje ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all`}
         ></textarea>
       </div>
-      
+
       <button
         type="submit"
         disabled={isSubmitting || !items.length}
@@ -372,24 +376,24 @@ function SuccessScreen({ orderId, email, total }) {
         <p className="text-gray-700 mb-6">
           Hemos recibido tu pedido correctamente. Te hemos enviado un correo con los links de descarga de tus fotos.
         </p>
-        
+
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 mb-8">
           <p className="text-sm text-gray-600 mb-1">Número de pedido</p>
           <p className="font-mono font-bold text-lg text-black">{orderId}</p>
-          
+
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 mb-2">Revisa tu bandeja de entrada (y spam) en:</p>
             <p className="font-medium text-black break-all">{email}</p>
           </div>
-          
+
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 mb-1">Total pagado</p>
             <p className="font-bold text-black">${total.toFixed(2)}</p>
           </div>
         </div>
-        
-        <a 
-          href="/" 
+
+        <a
+          href="/"
           className="inline-flex items-center text-black font-medium hover:text-gray-700 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
