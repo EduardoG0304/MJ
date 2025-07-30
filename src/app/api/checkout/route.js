@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/app/config/supabase';
 import { sendDownloadEmail } from '@/lib/resend';
 
 export async function POST(request) {
