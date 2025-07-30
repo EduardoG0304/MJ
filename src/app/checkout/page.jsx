@@ -42,19 +42,40 @@ function CheckoutContent() {
     const itemsParam = searchParams.get('items');
     const totalParam = searchParams.get('total');
     
-    if (itemsParam) {
-      try {
-        const parsedItems = JSON.parse(itemsParam);
+    try {
+      if (itemsParam) {
+        const decodedItems = decodeURIComponent(itemsParam);
+        const parsedItems = JSON.parse(decodedItems);
         setItems(Array.isArray(parsedItems) ? parsedItems : []);
-      } catch (e) {
-        console.error('Error parsing items:', e);
-        setItems([]);
+      } else {
+        // Intentar cargar del localStorage si no hay parámetros
+        const savedCart = localStorage.getItem('photoCart');
+        if (savedCart) {
+          const parsedItems = JSON.parse(savedCart);
+          setItems(Array.isArray(parsedItems) ? parsedItems : []);
+          
+          // Actualizar URL para reflejar el localStorage
+          const newTotal = parsedItems.reduce((sum, item) => sum + (item.price || 0), 0);
+          const newParams = new URLSearchParams();
+          newParams.set('items', JSON.stringify(parsedItems));
+          newParams.set('total', newTotal.toFixed(2));
+          router.replace(`/checkout?${newParams.toString()}`);
+        }
       }
-    }
-    
-    if (totalParam) {
-      const parsedTotal = parseFloat(totalParam);
-      setTotal(isNaN(parsedTotal) ? 0 : parsedTotal);
+      
+      if (totalParam) {
+        const decodedTotal = decodeURIComponent(totalParam);
+        const parsedTotal = parseFloat(decodedTotal);
+        setTotal(isNaN(parsedTotal) ? 0 : parsedTotal);
+      } else if (items.length > 0) {
+        // Calcular total basado en items si no hay parámetro total
+        const calculatedTotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+        setTotal(calculatedTotal);
+      }
+    } catch (e) {
+      console.error('Error parsing URL params:', e);
+      setItems([]);
+      setTotal(0);
     }
   }, [searchParams]);
 
@@ -131,7 +152,7 @@ function CheckoutContent() {
     setItems(newItems);
     
     // Recalcular el total
-    const newTotal = newItems.reduce((sum, item) => sum + item.price, 0);
+    const newTotal = newItems.reduce((sum, item) => sum + (item.price || 0), 0);
     setTotal(newTotal);
     
     // Actualizar la URL
@@ -173,6 +194,7 @@ function CheckoutContent() {
               isSubmitting={isSubmitting}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
+              items={items}
             />
           </div>
         </div>
@@ -237,7 +259,14 @@ function OrderSummary({ items, total, removeItem }) {
   );
 }
 
-function ContactForm({ formData, formErrors, isSubmitting, handleInputChange, handleSubmit }) {
+function ContactForm({ 
+  formData, 
+  formErrors, 
+  isSubmitting, 
+  handleInputChange, 
+  handleSubmit,
+  items 
+}) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <FormField
