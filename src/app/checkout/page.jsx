@@ -125,13 +125,20 @@ function CheckoutContent() {
         },
         body: JSON.stringify({
           ...formData,
-          items,
+          items: items.map(item => ({
+            id: item.id, // ID de la foto en la tabla fotos
+            eventName: item.eventName,
+            photoName: item.photoName,
+            price: item.price
+          })),
           total,
           orderId: generateOrderId()
         })
       });
       
-      if (!response.ok) throw new Error('Error en el pedido');
+      const result = await response.json();
+      
+      if (!response.ok) throw new Error(result.error || 'Error en el pedido');
       
       setSubmitSuccess(true);
       localStorage.removeItem('photoCart');
@@ -168,7 +175,7 @@ function CheckoutContent() {
   };
 
   if (submitSuccess) {
-    return <SuccessScreen orderId={generateOrderId()} />;
+    return <SuccessScreen orderId={generateOrderId()} email={formData.email} total={total} />;
   }
 
   return (
@@ -225,7 +232,7 @@ function OrderSummary({ items, total, removeItem }) {
         <>
           <div className="divide-y divide-gray-200">
             {items.map((item, index) => (
-              <div key={`${item.eventName}-${index}`} className="py-4 flex justify-between items-start group relative">
+              <div key={`${item.id}-${index}`} className="py-4 flex justify-between items-start group relative">
                 <div className="flex-1">
                   <p className="font-semibold text-black">{item.eventName}</p>
                   <p className="text-sm text-gray-700 mt-1">{item.photoName}</p>
@@ -352,7 +359,7 @@ function FormField({ label, id, name, type, value, onChange, error }) {
   );
 }
 
-function SuccessScreen({ orderId }) {
+function SuccessScreen({ orderId, email, total }) {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="text-center max-w-md w-full bg-white border border-gray-200 rounded-xl p-8 md:p-10 shadow-sm">
@@ -362,13 +369,25 @@ function SuccessScreen({ orderId }) {
           </svg>
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-black mb-4">¡Pedido confirmado!</h1>
-        <p className="text-gray-700 mb-8">
-          Hemos recibido tu pedido correctamente. Nos pondremos en contacto contigo a la brevedad para coordinar el pago y envío.
+        <p className="text-gray-700 mb-6">
+          Hemos recibido tu pedido correctamente. Te hemos enviado un correo con los links de descarga de tus fotos.
         </p>
+        
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 mb-8">
           <p className="text-sm text-gray-600 mb-1">Número de pedido</p>
           <p className="font-mono font-bold text-lg text-black">{orderId}</p>
+          
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Revisa tu bandeja de entrada (y spam) en:</p>
+            <p className="font-medium text-black break-all">{email}</p>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-600 mb-1">Total pagado</p>
+            <p className="font-bold text-black">${total.toFixed(2)}</p>
+          </div>
         </div>
+        
         <a 
           href="/" 
           className="inline-flex items-center text-black font-medium hover:text-gray-700 transition-colors"
