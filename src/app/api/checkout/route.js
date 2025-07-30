@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/app/config/supabase';
-import { sendDownloadEmail } from '@/app/lib/resend';
+import { createClient } from '@supabase/supabase-js';
+import { sendDownloadEmail } from '../lib/resend';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const { nombre, email, telefono, mensaje, items, total, orderId } = body;
 
-    // Validación mejorada
-    if (!nombre || !email || !telefono || !items?.length || !total || !orderId) {
+    // Validación básica
+    if (!nombre || !email || !telefono || !items?.length || !total) {
       return NextResponse.json(
         { error: 'Datos incompletos en la solicitud' },
         { status: 400 }
@@ -24,45 +29,51 @@ export async function POST(request) {
         customer_email: email,
         customer_phone: telefono,
         total_amount: total,
-        status: 'completed', // Asumimos pago completado
-        payment_status: 'paid',
+        status: 'pending_payment',
         notes: mensaje,
         items: items
       }])
-      .select()
-      .single();
+      .select();
 
     if (orderError) {
       console.error('Error al guardar orden:', orderError);
       throw new Error('Error al guardar la orden en la base de datos');
     }
 
-    // 2. Enviar correo con los links de descarga
+    // 2. Preparar datos para el correo
+    const photoList = items.map(item => ({
+      id: item.id,
+      name: item.photoName,
+      price: item.price,
+      downloadLink: item.url || '#'
+    }));
+
+    // 3. Enviar correo con los links
     const emailResult = await sendDownloadEmail(
       email,
       nombre,
       orderId,
-      items, // items ya contienen eventName, photoName, price y url
+      photoList,
       total
     );
 
     if (!emailResult.success) {
-      console.error('Error enviando correo:', emailResult.error);
-      // Registrar error pero no fallar la operación
+      console.error('Error al enviar correo:', emailResult.error);
+      // Continuamos a pesar del error de correo
     }
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json({ 
+      success: true, 
       orderId,
-      orderData,
+      orderData: orderData[0],
       emailSent: emailResult.success
     });
 
   } catch (error) {
-    console.error('Error en checkout:', error);
+    console.error('Error en el checkout:', error);
     return NextResponse.json(
       { 
-        error: error.message || 'Error en el servidor',
+        error: error.message || 'Error al procesar el pedido',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
