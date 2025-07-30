@@ -20,7 +20,33 @@ export async function POST(request) {
       );
     }
 
-    // 1. Guardar la orden en Supabase
+    // 1. Obtener las URLs originales de las fotos desde Supabase
+    const photoIds = items.map(item => item.id);
+    const { data: fotosData, error: fotosError } = await supabase
+      .from('fotos')
+      .select('id, ruta_original, nombre_archivo, url')
+      .in('id', photoIds);
+
+    if (fotosError) {
+      console.error('Error al obtener fotos:', fotosError);
+      throw new Error('Error al obtener información de las fotos');
+    }
+
+    // Crear URLs completas para las fotos originales
+    const itemsWithDownloadLinks = items.map(item => {
+      const fotoInfo = fotosData.find(foto => foto.id === item.id);
+      const originalUrl = fotoInfo?.ruta_original 
+        ? `https://gwunhrdthecrbmuhddpy.supabase.co/storage/v1/object/public/fotos_eventos/${fotoInfo.ruta_original}`
+        : fotoInfo?.url || '#';
+      
+      return {
+        ...item,
+        url: originalUrl,
+        photoName: fotoInfo?.nombre_archivo || item.photoName
+      };
+    });
+
+    // 2. Guardar la orden en Supabase con los datos actualizados
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert([{
@@ -31,7 +57,7 @@ export async function POST(request) {
         total_amount: total,
         status: 'pending_payment',
         notes: mensaje,
-        items: items
+        items: itemsWithDownloadLinks
       }])
       .select();
 
@@ -40,15 +66,15 @@ export async function POST(request) {
       throw new Error('Error al guardar la orden en la base de datos');
     }
 
-    // 2. Preparar datos para el correo
-    const photoList = items.map(item => ({
+    // 3. Preparar datos para el correo
+    const photoList = itemsWithDownloadLinks.map(item => ({
       id: item.id,
       name: item.photoName,
       price: item.price,
-      downloadLink: item.url || '#'
+      downloadLink: item.url
     }));
 
-    // 3. Enviar correo con los links
+    // 4. Enviar correo con los links de descarga
     const emailResult = await sendDownloadEmail(
       email,
       nombre,
