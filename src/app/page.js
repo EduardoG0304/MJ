@@ -4,7 +4,6 @@ import HeroSection from './components/HeroSection';
 import Navbar from './components/Navbar';
 import HowItWorks from './components/HowItWorks';
 import Testimonials from './components/Testimonials';
-import Newsletter from './components/Newsletter';
 import Footer from './components/Footer';
 import FeaturedEvents from './eventos/FeaturedEvents';
 
@@ -33,7 +32,6 @@ export default function Home() {
 
         <Testimonials />
         
-        <Newsletter />
       </main>
 
       <Footer />

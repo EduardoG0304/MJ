@@ -56,7 +56,7 @@ export default function FeaturedEvents() {
         const processedEvents = eventosData.map(evento => {
           const formattedDate = new Date(evento.fecha).toLocaleDateString('es-ES', {
             day: '2-digit',
-            month: '2-digit',
+            month: 'long',
             year: 'numeric'
           });
 
@@ -224,11 +224,11 @@ export default function FeaturedEvents() {
         className="text-center mb-12 md:mb-16"
       >
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-black font-serif tracking-tight">
-          Eventos Destacados
+          Galería de Eventos
         </h2>
         <div className="w-24 h-1 bg-gradient-to-r from-black to-gray-300 mx-auto"></div>
         <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
-          Explora nuestros eventos pasados y descubre las mejores fotografías
+          Revive los mejores momentos de nuestros eventos pasados
         </p>
       </motion.div>
       
@@ -276,13 +276,16 @@ export default function FeaturedEvents() {
                 onClick={() => openEventModal(event)}
               >
                 {/* Imagen del evento */}
-                <div className="h-64 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden flex-grow">
+                <div className="h-72 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden flex-grow">
                   {event.primeraFotoUrl ? (
-                    <img
-                      src={`${event.primeraFotoUrl}?width=500&quality=80`}
+                    <motion.img
+                      src={`${event.primeraFotoUrl}?width=600&quality=80`}
                       alt={`Miniatura de ${event.nombre}`}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiMxMTExMTEiLz48ZyBvcGFjaXR5PSIwLjAzIj48cGF0aCBkPSJNMCwwIEwxMDAsMTAwIE0xMDAsMCBMMCwxMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9nPjwvc3ZnPg==';
@@ -375,12 +378,14 @@ export default function FeaturedEvents() {
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                     >
-                      <img
-                        src={`${photo.url}?width=300&quality=80`}
-                        alt={`Foto ${index + 1}`}
-                        className="w-full h-48 sm:h-56 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                        onClick={() => openPhotoViewer(photo, index)}
-                      />
+                      <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                        <img
+                          src={`${photo.url}?width=300&quality=80`}
+                          alt={`Foto ${index + 1}`}
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                          onClick={() => openPhotoViewer(photo, index)}
+                        />
+                      </div>
                       <div className="absolute inset-0 rounded-lg group-hover:bg-black/10 transition-colors"></div>
                       
                       {/* Precio */}
@@ -417,10 +422,13 @@ export default function FeaturedEvents() {
                   
                   {/* Visor de foto */}
                   <div className="relative bg-gray-50 rounded-xl overflow-hidden shadow-inner">
-                    <img
+                    <motion.img
                       src={`${selectedPhoto.url}?width=1000&quality=90`}
                       alt="Foto seleccionada"
                       className={`w-full ${isFullscreenView ? 'h-[80vh]' : 'max-h-[65vh]'} object-contain mx-auto`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
                     />
                     
                     {/* Navegación */}
