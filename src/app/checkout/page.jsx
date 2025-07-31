@@ -48,13 +48,11 @@ function CheckoutContent() {
         const parsedItems = JSON.parse(decodedItems);
         setItems(Array.isArray(parsedItems) ? parsedItems : []);
       } else {
-        // Intentar cargar del localStorage si no hay parámetros
         const savedCart = localStorage.getItem('photoCart');
         if (savedCart) {
           const parsedItems = JSON.parse(savedCart);
           setItems(Array.isArray(parsedItems) ? parsedItems : []);
           
-          // Actualizar URL para reflejar el localStorage
           const newTotal = parsedItems.reduce((sum, item) => sum + (item.price || 0), 0);
           const newParams = new URLSearchParams();
           newParams.set('items', JSON.stringify(parsedItems));
@@ -68,7 +66,6 @@ function CheckoutContent() {
         const parsedTotal = parseFloat(decodedTotal);
         setTotal(isNaN(parsedTotal) ? 0 : parsedTotal);
       } else if (items.length > 0) {
-        // Calcular total basado en items si no hay parámetro total
         const calculatedTotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
         setTotal(calculatedTotal);
       }
@@ -118,33 +115,40 @@ function CheckoutContent() {
     setIsSubmitting(true);
     
     try {
+      const orderId = generateOrderId();
+      
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           items: items.map(item => ({
-            id: item.id, // ID de la foto en la tabla fotos
+            id: item.id,
             eventName: item.eventName,
             photoName: item.photoName,
             price: item.price
           })),
           total,
-          orderId: generateOrderId()
+          orderId
         })
       });
-      
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al procesar el pedido');
+      }
+
       const result = await response.json();
       
-      if (!response.ok) throw new Error(result.error || 'Error en el pedido');
-      
-      setSubmitSuccess(true);
-      localStorage.removeItem('photoCart');
+      if (result.success) {
+        setSubmitSuccess(true);
+        localStorage.removeItem('photoCart');
+      } else {
+        throw new Error(result.error || 'Error al completar el pedido');
+      }
     } catch (error) {
-      console.error('Error al enviar:', error);
-      alert('Hubo un error al procesar tu pedido. Por favor intenta nuevamente.');
+      console.error('Error completo:', error);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -158,17 +162,14 @@ function CheckoutContent() {
     const newItems = items.filter((_, index) => index !== indexToRemove);
     setItems(newItems);
     
-    // Recalcular el total
     const newTotal = newItems.reduce((sum, item) => sum + (item.price || 0), 0);
     setTotal(newTotal);
     
-    // Actualizar la URL
     const newParams = new URLSearchParams();
     newParams.set('items', JSON.stringify(newItems));
     newParams.set('total', newTotal.toFixed(2));
     router.replace(`/checkout?${newParams.toString()}`);
     
-    // Actualizar localStorage si es necesario
     if (typeof window !== 'undefined') {
       localStorage.setItem('photoCart', JSON.stringify(newItems));
     }

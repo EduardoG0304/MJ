@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendDownloadEmail } from '@/app/lib/resend';
+import { sendDownloadEmailNodemailer } from '@/app/lib/nodemailer';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -36,7 +36,7 @@ export async function POST(request) {
     const itemsWithDownloadLinks = items.map(item => {
       const fotoInfo = fotosData.find(foto => foto.id === item.id);
       const originalUrl = fotoInfo?.ruta_original 
-        ? `https://gwunhrdthecrbmuhddpy.supabase.co/storage/v1/object/public/fotos_eventos/${fotoInfo.ruta_original}`
+        ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos_eventos/${fotoInfo.ruta_original}`
         : fotoInfo?.url || '#';
       
       return {
@@ -46,7 +46,7 @@ export async function POST(request) {
       };
     });
 
-    // 2. Guardar la orden en Supabase con los datos actualizados
+    // 2. Guardar la orden en Supabase
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert([{
@@ -74,8 +74,8 @@ export async function POST(request) {
       downloadLink: item.url
     }));
 
-    // 4. Enviar correo con los links de descarga
-    const emailResult = await sendDownloadEmail(
+    // 4. Enviar correo con Nodemailer
+    const emailResult = await sendDownloadEmailNodemailer(
       email,
       nombre,
       orderId,
