@@ -3,9 +3,8 @@
 import HeroSection from './components/HeroSection';
 import Navbar from './components/Navbar';
 import HowItWorks from './components/HowItWorks';
-import Testimonials from './components/Testimonials';
 import Footer from './components/Footer';
-import FeaturedEvents from './eventos/FeaturedEvents';
+import FeaturedEvents from './eventos/page';
 
 export default function Home() {
   return (
@@ -24,9 +23,6 @@ export default function Home() {
         <section className="py-16 bg-white">
           <HowItWorks />
         </section>
-
-        <Testimonials />
-        
       </main>
 
       <Footer />

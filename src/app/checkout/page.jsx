@@ -1,29 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { validatePhone, validateEmail } from '../lib/validations';
 
 export default function CheckoutPage() {
-  return (
-    <Suspense fallback={<LoadingScreen />}>
-      <CheckoutContent />
-    </Suspense>
-  );
-}
-
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto h-10 w-10 border-4 border-black border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-lg font-medium text-gray-900">Cargando tu pedido...</p>
-      </div>
-    </div>
-  );
-}
-
-function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [items, setItems] = useState([]);
@@ -37,7 +17,9 @@ function CheckoutContent() {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [orderId, setOrderId] = useState('');
 
+  // Cargar items del carrito desde URL o localStorage
   useEffect(() => {
     const itemsParam = searchParams.get('items');
     const totalParam = searchParams.get('total');
@@ -94,12 +76,12 @@ function CheckoutContent() {
     if (!formData.nombre.trim()) errors.nombre = 'Nombre es requerido';
     if (!formData.email.trim()) {
       errors.email = 'Email es requerido';
-    } else if (!validateEmail(formData.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Email no válido';
     }
     if (!formData.telefono.trim()) {
       errors.telefono = 'Teléfono es requerido';
-    } else if (!validatePhone(formData.telefono)) {
+    } else if (!/^[0-9]{10,15}$/.test(formData.telefono)) {
       errors.telefono = 'Teléfono no válido';
     }
     
@@ -107,16 +89,11 @@ function CheckoutContent() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    setIsSubmitting(true);
+  const processOrder = async () => {
+    const newOrderId = `ord_${Date.now().toString(36).toUpperCase()}`;
+    setOrderId(newOrderId);
     
     try {
-      const orderId = generateOrderId();
-      
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,13 +106,12 @@ function CheckoutContent() {
             price: item.price
           })),
           total,
-          orderId
+          orderId: newOrderId
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Error al procesar el pedido');
+        throw new Error('Error al crear la orden');
       }
 
       const result = await response.json();
@@ -144,18 +120,21 @@ function CheckoutContent() {
         setSubmitSuccess(true);
         localStorage.removeItem('photoCart');
       } else {
-        throw new Error(result.error || 'Error al completar el pedido');
+        throw new Error(result.error || 'Error al procesar el pedido');
       }
+      
     } catch (error) {
-      console.error('Error completo:', error);
-      alert(`Error: ${error.message}`);
-    } finally {
+      console.error('Error:', error);
+      alert(error.message);
       setIsSubmitting(false);
     }
   };
 
-  const generateOrderId = () => {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    setIsSubmitting(true);
+    await processOrder();
   };
 
   const removeItem = (indexToRemove) => {
@@ -176,7 +155,7 @@ function CheckoutContent() {
   };
 
   if (submitSuccess) {
-    return <SuccessScreen orderId={generateOrderId()} email={formData.email} total={total} />;
+    return <SuccessScreen orderId={orderId} email={formData.email} total={total} />;
   }
 
   return (
@@ -186,7 +165,7 @@ function CheckoutContent() {
           <h1 className="text-3xl md:text-4xl font-bold text-black mb-3">Finalizar Compra</h1>
           <div className="w-20 h-1 bg-black mx-auto"></div>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto">
-            Revisa tu pedido y completa tus datos para proceder con el pago
+            Revisa tu pedido y completa tus datos para proceder
           </p>
         </header>
         
@@ -195,7 +174,6 @@ function CheckoutContent() {
           
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-black mb-6">Información de contacto</h2>
-            
             <ContactForm 
               formData={formData}
               formErrors={formErrors}
@@ -211,6 +189,7 @@ function CheckoutContent() {
   );
 }
 
+// Componente OrderSummary
 function OrderSummary({ items, total, removeItem }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
@@ -267,6 +246,7 @@ function OrderSummary({ items, total, removeItem }) {
   );
 }
 
+// Componente ContactForm
 function ContactForm({ 
   formData, 
   formErrors, 
@@ -317,7 +297,7 @@ function ContactForm({
           rows="4"
           value={formData.mensaje}
           onChange={handleInputChange}
-          className={`w-full px-4 py-3 border ${formErrors.mensaje ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all`}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
         ></textarea>
       </div>
       
@@ -334,12 +314,13 @@ function ContactForm({
             </svg>
             Procesando...
           </>
-        ) : 'Confirmar compra'}
+        ) : 'Confirmar Pedido'}
       </button>
     </form>
   );
 }
 
+// Componente FormField
 function FormField({ label, id, name, type, value, onChange, error }) {
   return (
     <div>
@@ -360,18 +341,19 @@ function FormField({ label, id, name, type, value, onChange, error }) {
   );
 }
 
+// Componente SuccessScreen
 function SuccessScreen({ orderId, email, total }) {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="text-center max-w-md w-full bg-white border border-gray-200 rounded-xl p-8 md:p-10 shadow-sm">
-        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-black mb-4">¡Pedido confirmado!</h1>
         <p className="text-gray-700 mb-6">
-          Hemos recibido tu pedido correctamente. Te hemos enviado un correo con los links de descarga de tus fotos.
+          Tu pedido #{orderId} ha sido registrado exitosamente. Nos pondremos en contacto contigo para completar el proceso.
         </p>
         
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 mb-8">
@@ -379,12 +361,12 @@ function SuccessScreen({ orderId, email, total }) {
           <p className="font-mono font-bold text-lg text-black">{orderId}</p>
           
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-sm text-gray-600 mb-2">Revisa tu bandeja de entrada (y spam) en:</p>
+            <p className="text-sm text-gray-600 mb-2">Te contactaremos al correo:</p>
             <p className="font-medium text-black break-all">{email}</p>
           </div>
           
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-sm text-gray-600 mb-1">Total pagado</p>
+            <p className="text-sm text-gray-600 mb-1">Total del pedido</p>
             <p className="font-bold text-black">${total.toFixed(2)}</p>
           </div>
         </div>

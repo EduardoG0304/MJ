@@ -10,9 +10,9 @@ export default function Navbar({ isScrolled }) {
 
   const navLinks = [
     { name: "Inicio", href: "#" },
-    { name: "Eventos", href: "/eventos" },
-    { name: "Sobre Mi", href: "#" },
-    { name: "Contacto", href: "#" }
+    { name: "Eventos", href: "\eventos" },
+    { name: "Sobre Mi", href: "\aboutme" },
+    { name: "Contacto", href: "\contacto" }
   ];
 
   return (
