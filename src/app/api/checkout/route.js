@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { sendDownloadEmailNodemailer } from '@/app/lib/nodemailer';
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 
-// Configuración de Mercado Pago (versión actual)
+// Configuración de Mercado Pago
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
   options: { timeout: 5000 }
 });
 
-// Configuración de Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -20,7 +19,6 @@ const supabase = createClient(
   }
 );
 
-// Función para obtener URL de descarga
 const getDownloadUrl = (fotoInfo) => {
   if (fotoInfo?.ruta_original) {
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos_eventos/${fotoInfo.ruta_original}`;
@@ -28,7 +26,6 @@ const getDownloadUrl = (fotoInfo) => {
   return fotoInfo?.url || '#';
 };
 
-// Procesar items del carrito
 const processCartItems = (items, fotosData) => {
   return items.map(item => {
     const fotoInfo = fotosData.find(foto => foto.id === item.id);
@@ -41,7 +38,6 @@ const processCartItems = (items, fotosData) => {
   });
 };
 
-// Validar datos de la solicitud
 const validateRequest = (data) => {
   const { nombre, email, telefono, items, total } = data;
   
@@ -58,9 +54,8 @@ const validateRequest = (data) => {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { nombre, email, telefono, mensaje, items, total, orderId } = body;
+    const { nombre, email, telefono, mensaje, items, total, orderId, paymentMethod } = body;
 
-    // Validar datos recibidos
     const validationError = validateRequest(body);
     if (validationError) {
       return NextResponse.json(
@@ -69,11 +64,11 @@ export async function POST(request) {
       );
     }
 
-    // Obtener información de las fotos desde Supabase
+    // Obtener información de las fotos
     const photoIds = items.map(item => item.id);
     const { data: fotosData, error: fotosError } = await supabase
       .from('fotos')
-      .select('id, ruta_original, url, url_original, precio, nombre_archivo')
+      .select('id, ruta_original, url, url_original, precio')
       .in('id', photoIds);
 
     if (fotosError) {
@@ -81,41 +76,7 @@ export async function POST(request) {
       throw new Error('Error al obtener información de las fotos');
     }
 
-    // Procesar items con URLs de descarga
     const itemsWithDownloadLinks = processCartItems(items, fotosData);
-
-    // Crear preferencia de pago en Mercado Pago
-    const preference = new Preference(client);
-    
-    const mpItems = items.map(item => ({
-      title: item.photoName,
-      description: `Foto de ${item.eventName}`,
-      quantity: 1,
-      unit_price: item.price,
-      currency_id: 'ARS' // Ajusta según tu moneda
-    }));
-
-    const mpResponse = await preference.create({
-      body: {
-        items: mpItems,
-        payer: {
-          name: nombre,
-          email: email,
-          phone: {
-            area_code: "",
-            number: telefono
-          }
-        },
-        external_reference: orderId,
-        back_urls: {
-          success: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/success`,
-          failure: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/failure`,
-          pending: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/pending`
-        },
-        auto_return: 'approved',
-        notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/mercado-pago/webhook`,
-      }
-    });
 
     // Guardar la orden en Supabase
     const { data: orderData, error: orderError } = await supabase
@@ -126,11 +87,9 @@ export async function POST(request) {
         customer_email: email,
         customer_phone: telefono,
         total_amount: total,
-        status: 'pending_payment',
+        status: 'pending',
         payment_status: 'unpaid',
-        payment_method: 'mercadopago',
-        payment_preference_id: mpResponse.id,
-        payment_url: mpResponse.init_point,
+        payment_method: paymentMethod,
         notes: mensaje,
         items: itemsWithDownloadLinks,
         photo_ids: photoIds
@@ -142,8 +101,9 @@ export async function POST(request) {
       throw new Error('Error al guardar la orden en la base de datos');
     }
 
-    // Enviar email de confirmación (opcional)
-    try {
+    // Si el método de pago no es Mercado Pago, retornar éxito
+    if (paymentMethod !== 'mercadopago') {
+      // Enviar correo de confirmación para pagos manuales
       const photoList = itemsWithDownloadLinks.map(item => ({
         id: item.id,
         name: item.photoName,
@@ -151,7 +111,7 @@ export async function POST(request) {
         downloadLink: item.url
       }));
 
-      await sendDownloadEmailNodemailer(
+      const emailResult = await sendDownloadEmailNodemailer(
         email,
         nombre,
         orderId,
@@ -159,16 +119,52 @@ export async function POST(request) {
         total,
         false
       );
-    } catch (emailError) {
-      console.error('Error al enviar correo:', emailError);
-      // No interrumpimos el flujo por un error de email
+
+      return NextResponse.json({ 
+        success: true, 
+        orderId,
+        orderData: orderData[0],
+        emailSent: emailResult.success
+      });
     }
+
+    // Crear preferencia de Mercado Pago
+    const preference = new Preference(client);
+    
+    const mpItems = items.map(item => ({
+      title: item.photoName,
+      description: `Foto de evento: ${item.eventName}`,
+      quantity: 1,
+      unit_price: item.price,
+      currency_id: 'ARS',
+    }));
+
+    const mpResponse = await preference.create({
+  body: {
+    items: mpItems,
+    payer: {
+      name: nombre,
+      email: email,
+      phone: {
+        area_code: telefono.substring(0, 3),
+        number: telefono.substring(3)
+      }
+    },
+    external_reference: orderId,
+    back_urls: {
+      success: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/success?order_id=${orderId}`,
+      failure: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/failure?order_id=${orderId}`,
+      pending: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/pending?order_id=${orderId}`
+    },
+    auto_return: 'approved',
+    notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/mercadopago/webhook`,
+  }
+});
 
     return NextResponse.json({ 
       success: true, 
       orderId,
-      paymentUrl: mpResponse.init_point,
-      preferenceId: mpResponse.id,
+      checkoutUrl: mpResponse.sandbox_init_point, // Usa init_point para producción
       orderData: orderData[0]
     });
 

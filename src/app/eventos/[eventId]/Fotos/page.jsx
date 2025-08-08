@@ -1,12 +1,136 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { FiCalendar, FiHome } from 'react-icons/fi';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { FiX, FiShoppingCart, FiChevronLeft, FiChevronRight, FiMaximize, FiMinimize, FiArrowUp } from 'react-icons/fi';
 
+// Componente Thumbnail memoizado
+const PhotoThumbnail = memo(({ photo, index, openPhotoViewer, cart, toggleCartItem, hasWatermark, getOptimizedImageUrl }) => (
+  <motion.div
+    className="relative group overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, delay: index * 0.05 }}
+    style={{ height: '224px' }}
+  >
+    <img
+      src={getOptimizedImageUrl(photo.url, 300, 70)}
+      alt={`Foto ${index + 1}`}
+      className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+      onClick={() => openPhotoViewer(photo, index)}
+      loading="lazy"
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+      <h4 className="text-white font-medium text-sm truncate">{photo.nombre || `Foto ${index + 1}`}</h4>
+      <p className="text-white font-bold">${photo.precio?.toFixed(2) || '0.00'}</p>
+    </div>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleCartItem(photo);
+      }}
+      className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 ${
+        cart.some(item => item.id === photo.id)
+          ? 'bg-green-500 text-white shadow-lg'
+          : 'bg-white/90 text-gray-800 hover:bg-gray-100 shadow-sm'
+      }`}
+      title={cart.some(item => item.id === photo.id) ? 'Quitar del carrito' : 'Agregar al carrito'}
+    >
+      <FiShoppingCart size={16} />
+    </button>
+
+    {hasWatermark && (
+      <div className="absolute top-3 left-3 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-full shadow">
+        Marca de agua
+      </div>
+    )}
+  </motion.div>
+));
+
+// Componente LazyGrid para virtualización
+const LazyPhotoGrid = memo(({ photos, openPhotoViewer, cart, toggleCartItem, hasWatermark, getOptimizedImageUrl }) => {
+  const containerRef = useRef(null);
+  const [visibleRange, setVisibleRange] = useState([0, 12]);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || photos.length === 0) return;
+
+    const handleScroll = () => {
+      const { scrollTop, clientHeight } = container;
+      const rowHeight = 224 + 24; // height + gap
+      const rowsInView = Math.ceil(clientHeight / rowHeight);
+      
+      const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - 1);
+      const endRow = startRow + rowsInView * 3; // Render 3x visible rows
+
+      const itemsPerRow = Math.max(1, Math.floor(dimensions.width / (300 + 24))); // item width + gap
+      const startIndex = Math.max(0, startRow * itemsPerRow);
+      const endIndex = Math.min(photos.length, endRow * itemsPerRow);
+
+      setVisibleRange([startIndex, endIndex]);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [photos.length, dimensions]);
+
+  // Preload images just outside visible range
+  useEffect(() => {
+    const preloadStart = Math.max(0, visibleRange[0] - 4);
+    const preloadEnd = Math.min(photos.length, visibleRange[1] + 4);
+    
+    for (let i = preloadStart; i < preloadEnd; i++) {
+      if (i < visibleRange[0] || i >= visibleRange[1]) {
+        const img = new Image();
+        img.src = getOptimizedImageUrl(photos[i].url, 300, 70);
+      }
+    }
+  }, [visibleRange, photos, getOptimizedImageUrl]);
+
+  return (
+    <div 
+      ref={containerRef}
+      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 overflow-y-auto"
+      style={{ height: '70vh' }}
+    >
+      {photos.slice(visibleRange[0], visibleRange[1]).map((photo, index) => (
+        <PhotoThumbnail
+          key={`${photo.id}-${visibleRange[0] + index}`}
+          photo={photo}
+          index={visibleRange[0] + index}
+          openPhotoViewer={openPhotoViewer}
+          cart={cart}
+          toggleCartItem={toggleCartItem}
+          hasWatermark={hasWatermark}
+          getOptimizedImageUrl={getOptimizedImageUrl}
+        />
+      ))}
+    </div>
+  );
+});
+
+// Componente principal
 export default function EventPhotos() {
   const router = useRouter();
   const params = useParams();
@@ -21,6 +145,12 @@ export default function EventPhotos() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+
+  const getOptimizedImageUrl = useCallback((url, width = 300, quality = 70) => {
+    if (!url) return '';
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}width=${width}&quality=${quality}&format=webp`;
+  }, []);
 
   useEffect(() => {
     const loadEventData = async () => {
@@ -82,11 +212,7 @@ export default function EventPhotos() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 300) {
-        setShowScrollButton(true);
-      } else {
-        setShowScrollButton(false);
-      }
+      setShowScrollButton(window.scrollY > 300);
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -101,34 +227,32 @@ export default function EventPhotos() {
     }
   }, [cart]);
 
-  const openPhotoViewer = (photo, index) => {
+  const openPhotoViewer = useCallback((photo, index) => {
     setSelectedPhoto(photo);
     setCurrentPhotoIndex(index);
     setIsFullscreenView(false);
-  };
+  }, []);
 
-  const closePhotoViewer = () => {
+  const closePhotoViewer = useCallback(() => {
     setSelectedPhoto(null);
-  };
+  }, []);
 
-  const navigatePhotos = (direction) => {
-    let newIndex;
+  const navigatePhotos = useCallback((direction) => {
+    setCurrentPhotoIndex(prevIndex => {
+      const newIndex = direction === 'prev' 
+        ? (prevIndex === 0 ? eventPhotos.length - 1 : prevIndex - 1)
+        : (prevIndex === eventPhotos.length - 1 ? 0 : prevIndex + 1);
+      
+      setSelectedPhoto(eventPhotos[newIndex]);
+      return newIndex;
+    });
+  }, [eventPhotos]);
 
-    if (direction === 'prev') {
-      newIndex = currentPhotoIndex === 0 ? eventPhotos.length - 1 : currentPhotoIndex - 1;
-    } else {
-      newIndex = currentPhotoIndex === eventPhotos.length - 1 ? 0 : currentPhotoIndex + 1;
-    }
+  const toggleFullscreenView = useCallback(() => {
+    setIsFullscreenView(prev => !prev);
+  }, []);
 
-    setSelectedPhoto(eventPhotos[newIndex]);
-    setCurrentPhotoIndex(newIndex);
-  };
-
-  const toggleFullscreenView = () => {
-    setIsFullscreenView(!isFullscreenView);
-  };
-
-  const toggleCartItem = (photo) => {
+  const toggleCartItem = useCallback((photo) => {
     setCart(prevCart => {
       const existingItemIndex = prevCart.findIndex(item => item.id === photo.id);
 
@@ -146,13 +270,13 @@ export default function EventPhotos() {
         }];
       }
     });
-  };
+  }, [event, currentPhotoIndex]);
 
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     return cart.reduce((total, item) => total + (item.price || 0), 0);
-  };
+  }, [cart]);
 
-  const handleCheckout = () => {
+  const handleCheckout = useCallback(() => {
     if (cart.length === 0) {
       alert('El carrito está vacío');
       return;
@@ -163,22 +287,38 @@ export default function EventPhotos() {
     queryParams.append('total', calculateTotal().toFixed(2));
 
     router.push(`/checkout?${queryParams.toString()}`);
-  };
+  }, [cart, calculateTotal, router]);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     router.push('/eventos');
-  };
+  }, [router]);
 
-  const scrollToTop = () => {
+  const scrollToTop = useCallback(() => {
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
-  };
+  }, []);
 
-  const goToHome = () => {
+  const goToHome = useCallback(() => {
     router.push('/');
-  };
+  }, [router]);
+
+  // Preload adjacent photos when viewing one
+  useEffect(() => {
+    if (selectedPhoto && eventPhotos.length > 0) {
+      const preloadImage = (url) => {
+        const img = new Image();
+        img.src = getOptimizedImageUrl(url, 1000, 85);
+      };
+
+      const nextIndex = (currentPhotoIndex + 1) % eventPhotos.length;
+      const prevIndex = (currentPhotoIndex - 1 + eventPhotos.length) % eventPhotos.length;
+      
+      preloadImage(eventPhotos[nextIndex].url);
+      preloadImage(eventPhotos[prevIndex].url);
+    }
+  }, [currentPhotoIndex, selectedPhoto, eventPhotos, getOptimizedImageUrl]);
 
   if (loading || !event) {
     return (
@@ -234,49 +374,14 @@ export default function EventPhotos() {
           )}
 
           {!selectedPhoto ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-              {eventPhotos.map((photo, index) => (
-                <motion.div
-                  key={photo.id}
-                  className="relative group overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <img
-                    src={`${photo.url}?width=300&quality=80`}
-                    alt={`Foto ${index + 1}`}
-                    className="w-full h-48 sm:h-56 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                    onClick={() => openPhotoViewer(photo, index)}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                    <h4 className="text-white font-medium text-sm truncate">{photo.nombre || `Foto ${index + 1}`}</h4>
-                    <p className="text-white font-bold">${photo.precio?.toFixed(2) || '0.00'}</p>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleCartItem(photo);
-                    }}
-                    className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-300 ${
-                      cart.some(item => item.id === photo.id)
-                        ? 'bg-green-500 text-white shadow-lg'
-                        : 'bg-white/90 text-gray-800 hover:bg-gray-100 shadow-sm'
-                    }`}
-                    title={cart.some(item => item.id === photo.id) ? 'Quitar del carrito' : 'Agregar al carrito'}
-                  >
-                    <FiShoppingCart size={16} />
-                  </button>
-
-                  {event.hasWatermark && (
-                    <div className="absolute top-3 left-3 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-full shadow">
-                      Marca de agua
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+            <LazyPhotoGrid
+              photos={eventPhotos}
+              openPhotoViewer={openPhotoViewer}
+              cart={cart}
+              toggleCartItem={toggleCartItem}
+              hasWatermark={event.hasWatermark}
+              getOptimizedImageUrl={getOptimizedImageUrl}
+            />
           ) : (
             <div className="relative">
               <button
@@ -288,7 +393,7 @@ export default function EventPhotos() {
 
               <div className="relative bg-gray-50 rounded-xl overflow-hidden shadow-lg">
                 <img
-                  src={`${selectedPhoto.url}?width=1000&quality=90`}
+                  src={getOptimizedImageUrl(selectedPhoto.url, 1000, 85)}
                   alt="Foto seleccionada"
                   className={`w-full ${isFullscreenView ? 'h-[80vh]' : 'max-h-[65vh]'} object-contain mx-auto`}
                 />
@@ -356,26 +461,29 @@ export default function EventPhotos() {
         </div>
       </div>
 
-      {cart.length > 0 && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300 }}
-          className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
-            <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
-          </div>
-          <button
-            onClick={handleCheckout}
-            className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md"
+      <AnimatePresence>
+        {cart.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+            className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
           >
-            <FiShoppingCart />
-            Ir a pagar
-          </button>
-        </motion.div>
-      )}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
+              <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+            </div>
+            <button
+              onClick={handleCheckout}
+              className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md"
+            >
+              <FiShoppingCart />
+              Ir a pagar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {showScrollButton && (
         <motion.button
