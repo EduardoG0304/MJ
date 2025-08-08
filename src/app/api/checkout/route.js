@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendDownloadEmailNodemailer } from '@/app/lib/nodemailer';
+import mercadopago from 'mercadopago';
+
+// Configura Mercado Pago
+mercadopago.configure({
+  access_token: process.env.MERCADOPAGO_ACCESS_TOKEN
+});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -61,7 +67,7 @@ export async function POST(request) {
     const photoIds = items.map(item => item.id);
     const { data: fotosData, error: fotosError } = await supabase
       .from('fotos')
-      .select('id, ruta_original, url, url_original, precio')
+      .select('id, ruta_original, url, url_original, precio, nombre_archivo')
       .in('id', photoIds);
 
     if (fotosError) {
@@ -70,6 +76,36 @@ export async function POST(request) {
     }
 
     const itemsWithDownloadLinks = processCartItems(items, fotosData);
+
+    // Crear preferencia de pago en Mercado Pago
+    const preference = {
+      items: items.map(item => ({
+        title: item.photoName,
+        description: `Foto de ${item.eventName}`,
+        quantity: 1,
+        unit_price: item.price,
+      })),
+      payer: {
+        name: nombre,
+        email: email,
+        phone: {
+          area_code: "",
+          number: telefono
+        }
+      },
+      external_reference: orderId,
+      back_urls: {
+        success: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/success`,
+        failure: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/failure`,
+        pending: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/pending`
+      },
+      auto_return: 'approved',
+      notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/mercado-pago/webhook`,
+    };
+
+    const mpResponse = await mercadopago.preferences.create(preference);
+    const initPoint = mpResponse.body.init_point;
+    const preferenceId = mpResponse.body.id;
 
     // Guardar la orden en Supabase
     const { data: orderData, error: orderError } = await supabase
@@ -80,8 +116,11 @@ export async function POST(request) {
         customer_email: email,
         customer_phone: telefono,
         total_amount: total,
-        status: 'pending',
+        status: 'pending_payment',
         payment_status: 'unpaid',
+        payment_method: 'mercadopago',
+        payment_preference_id: preferenceId,
+        payment_url: initPoint,
         notes: mensaje,
         items: itemsWithDownloadLinks,
         photo_ids: photoIds
@@ -93,32 +132,12 @@ export async function POST(request) {
       throw new Error('Error al guardar la orden en la base de datos');
     }
 
-    // Enviar correo de confirmación
-    const photoList = itemsWithDownloadLinks.map(item => ({
-      id: item.id,
-      name: item.photoName,
-      price: item.price,
-      downloadLink: item.url
-    }));
-
-    const emailResult = await sendDownloadEmailNodemailer(
-      email,
-      nombre,
-      orderId,
-      photoList,
-      total,
-      false
-    );
-
-    if (!emailResult.success) {
-      console.error('Error al enviar correo:', emailResult.error);
-    }
-
     return NextResponse.json({ 
       success: true, 
       orderId,
-      orderData: orderData[0],
-      emailSent: emailResult.success
+      paymentUrl: initPoint,
+      preferenceId,
+      orderData: orderData[0]
     });
 
   } catch (error) {

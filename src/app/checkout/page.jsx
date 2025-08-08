@@ -117,8 +117,8 @@ function CheckoutContent() {
       const result = await response.json();
       
       if (result.success) {
-        setSubmitSuccess(true);
-        localStorage.removeItem('photoCart');
+        // Redirigir a Mercado Pago para el pago
+        window.location.href = result.paymentUrl;
       } else {
         throw new Error(result.error || 'Error al procesar el pedido');
       }
@@ -189,7 +189,6 @@ function CheckoutContent() {
   );
 }
 
-// Componente OrderSummary
 function OrderSummary({ items, total, removeItem }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
@@ -246,7 +245,6 @@ function OrderSummary({ items, total, removeItem }) {
   );
 }
 
-// Componente ContactForm
 function ContactForm({ 
   formData, 
   formErrors, 
@@ -304,7 +302,7 @@ function ContactForm({
       <button
         type="submit"
         disabled={isSubmitting || !items.length}
-        className="w-full bg-black text-white py-3.5 px-6 rounded-lg hover:bg-gray-900 transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center font-medium"
+        className="w-full bg-[#009ee3] text-white py-3.5 px-6 rounded-lg hover:bg-[#0085c6] transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center font-medium"
       >
         {isSubmitting ? (
           <>
@@ -314,13 +312,22 @@ function ContactForm({
             </svg>
             Procesando...
           </>
-        ) : 'Confirmar Pedido'}
+        ) : (
+          <>
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 9H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15 9H15.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Pagar con Mercado Pago
+          </>
+        )}
       </button>
     </form>
   );
 }
 
-// Componente FormField
 function FormField({ label, id, name, type, value, onChange, error }) {
   return (
     <div>
@@ -341,20 +348,54 @@ function FormField({ label, id, name, type, value, onChange, error }) {
   );
 }
 
-// Componente SuccessScreen
 function SuccessScreen({ orderId, email, total }) {
+  const searchParams = useSearchParams();
+  const paymentStatus = searchParams.get('status');
+
+  let statusMessage = '';
+  let statusIcon = '';
+  let statusColor = '';
+  
+  if (paymentStatus === 'approved') {
+    statusMessage = '¡Pago aprobado! Tu pedido ha sido confirmado.';
+    statusIcon = (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    );
+    statusColor = 'text-green-600 bg-green-100';
+  } else if (paymentStatus === 'pending') {
+    statusMessage = 'Tu pago está pendiente de confirmación. Te notificaremos cuando sea aprobado.';
+    statusIcon = (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    );
+    statusColor = 'text-yellow-500 bg-yellow-100';
+  } else if (paymentStatus === 'failure') {
+    statusMessage = 'Hubo un problema con tu pago. Por favor, intenta nuevamente.';
+    statusIcon = (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    );
+    statusColor = 'text-red-500 bg-red-100';
+  } else {
+    statusMessage = '¡Pedido confirmado! Completa el pago para finalizar.';
+    statusIcon = (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    );
+    statusColor = 'text-blue-500 bg-blue-100';
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="text-center max-w-md w-full bg-white border border-gray-200 rounded-xl p-8 md:p-10 shadow-sm">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <div className={`w-20 h-20 ${statusColor} rounded-full flex items-center justify-center mx-auto mb-6`}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {statusIcon}
           </svg>
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold text-black mb-4">¡Pedido confirmado!</h1>
-        <p className="text-gray-700 mb-6">
-          Tu pedido #{orderId} ha sido registrado exitosamente. Nos pondremos en contacto contigo para completar el proceso.
-        </p>
+        <h1 className="text-2xl md:text-3xl font-bold text-black mb-4">
+          {paymentStatus === 'approved' ? '¡Pago aprobado!' : 
+           paymentStatus === 'pending' ? 'Pago pendiente' : 
+           paymentStatus === 'failure' ? 'Pago rechazado' : '¡Pedido confirmado!'}
+        </h1>
+        <p className="text-gray-700 mb-6">{statusMessage}</p>
         
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 mb-8">
           <p className="text-sm text-gray-600 mb-1">Número de pedido</p>
@@ -371,21 +412,27 @@ function SuccessScreen({ orderId, email, total }) {
           </div>
         </div>
         
-        <a 
-          href="/" 
-          className="inline-flex items-center text-black font-medium hover:text-gray-700 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver al inicio
-        </a>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a 
+            href="/" 
+            className="px-6 py-2.5 border border-black text-black rounded-lg hover:bg-gray-100 transition-colors font-medium text-center"
+          >
+            Volver al inicio
+          </a>
+          {paymentStatus === 'failure' && (
+            <a 
+              href="/checkout" 
+              className="px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-center"
+            >
+              Reintentar pago
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// Componente principal que envuelve en Suspense
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
