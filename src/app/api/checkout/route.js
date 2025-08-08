@@ -136,7 +136,7 @@ export async function POST(request) {
       description: `Foto de evento: ${item.eventName}`,
       quantity: 1,
       unit_price: item.price,
-      currency_id: 'ARS',
+      currency_id: 'MXN',
     }));
 
     const mpResponse = await preference.create({
