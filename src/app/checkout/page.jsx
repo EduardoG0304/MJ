@@ -9,6 +9,9 @@ function CheckoutContent() {
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [subtotal, setSubtotal] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [discountInfo, setDiscountInfo] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -26,6 +29,9 @@ function CheckoutContent() {
   useEffect(() => {
     const itemsParam = searchParams.get('items');
     const totalParam = searchParams.get('total');
+    const discountParam = searchParams.get('discount');
+    const subtotalParam = searchParams.get('subtotal');
+    const discountInfoParam = searchParams.get('discount_name');
     
     try {
       if (itemsParam) {
@@ -38,10 +44,11 @@ function CheckoutContent() {
           const parsedItems = JSON.parse(savedCart);
           setItems(Array.isArray(parsedItems) ? parsedItems : []);
           
-          const newTotal = parsedItems.reduce((sum, item) => sum + (item.price || 0), 0);
+          const newSubtotal = parsedItems.reduce((sum, item) => sum + (item.price || 0), 0);
           const newParams = new URLSearchParams();
           newParams.set('items', JSON.stringify(parsedItems));
-          newParams.set('total', newTotal.toFixed(2));
+          newParams.set('subtotal', newSubtotal.toFixed(2));
+          newParams.set('total', newSubtotal.toFixed(2));
           router.replace(`/checkout?${newParams.toString()}`);
         }
       }
@@ -54,10 +61,28 @@ function CheckoutContent() {
         const calculatedTotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
         setTotal(calculatedTotal);
       }
+
+      if (subtotalParam) {
+        const decodedSubtotal = decodeURIComponent(subtotalParam);
+        const parsedSubtotal = parseFloat(decodedSubtotal);
+        setSubtotal(isNaN(parsedSubtotal) ? 0 : parsedSubtotal);
+      }
+
+      if (discountParam) {
+        const decodedDiscount = decodeURIComponent(discountParam);
+        const parsedDiscount = parseFloat(decodedDiscount);
+        setDiscount(isNaN(parsedDiscount) ? 0 : parsedDiscount);
+      }
+
+      if (discountInfoParam) {
+        setDiscountInfo(decodeURIComponent(discountInfoParam));
+      }
     } catch (e) {
       console.error('Error parsing URL params:', e);
       setItems([]);
       setTotal(0);
+      setSubtotal(0);
+      setDiscount(0);
     }
   }, [searchParams]);
 
@@ -110,9 +135,12 @@ function CheckoutContent() {
             photoName: item.photoName,
             price: item.price
           })),
+          subtotal,
+          discount,
           total,
           orderId: newOrderId,
-          paymentMethod
+          paymentMethod,
+          discountInfo
         })
       });
 
@@ -154,12 +182,22 @@ function CheckoutContent() {
     const newItems = items.filter((_, index) => index !== indexToRemove);
     setItems(newItems);
     
-    const newTotal = newItems.reduce((sum, item) => sum + (item.price || 0), 0);
+    const newSubtotal = newItems.reduce((sum, item) => sum + (item.price || 0), 0);
+    const newTotal = newSubtotal - discount;
+    
+    setSubtotal(newSubtotal);
     setTotal(newTotal);
     
     const newParams = new URLSearchParams();
     newParams.set('items', JSON.stringify(newItems));
+    newParams.set('subtotal', newSubtotal.toFixed(2));
     newParams.set('total', newTotal.toFixed(2));
+    if (discount > 0) {
+      newParams.set('discount', discount.toFixed(2));
+      if (discountInfo) {
+        newParams.set('discount_name', discountInfo);
+      }
+    }
     router.replace(`/checkout?${newParams.toString()}`);
     
     if (typeof window !== 'undefined') {
@@ -183,7 +221,14 @@ function CheckoutContent() {
         </header>
         
         <div className="grid lg:grid-cols-2 gap-10">
-          <OrderSummary items={items} total={total} removeItem={removeItem} />
+          <OrderSummary 
+            items={items} 
+            subtotal={subtotal}
+            discount={discount}
+            discountInfo={discountInfo}
+            total={total} 
+            removeItem={removeItem} 
+          />
           
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-black mb-6">Información de contacto</h2>
@@ -205,7 +250,7 @@ function CheckoutContent() {
   );
 }
 
-function OrderSummary({ items, total, removeItem }) {
+function OrderSummary({ items, subtotal, discount, discountInfo, total, removeItem }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
       <h2 className="text-2xl font-bold text-black mb-6">Resumen del pedido</h2>
@@ -249,8 +294,25 @@ function OrderSummary({ items, total, removeItem }) {
             ))}
           </div>
           
-          <div className="border-t border-gray-200 pt-6 mt-6">
-            <div className="flex justify-between items-center">
+          <div className="border-t border-gray-200 pt-6 mt-6 space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-700">Subtotal</span>
+              <span className="text-gray-900">${subtotal.toFixed(2)}</span>
+            </div>
+            
+            {discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <div className="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                  </svg>
+                  <span>{discountInfo || 'Descuento'}</span>
+                </div>
+                <span>-${discount.toFixed(2)}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center pt-3 border-t border-gray-200">
               <span className="font-bold text-lg text-black">Total</span>
               <span className="font-bold text-xl text-black">${total.toFixed(2)}</span>
             </div>

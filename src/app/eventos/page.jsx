@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
-import { FiImage, FiCalendar, FiCamera, FiShoppingCart } from 'react-icons/fi';
+import { FiImage, FiCalendar, FiCamera, FiShoppingCart, FiPercent } from 'react-icons/fi';
 
 const LINE_POSITIONS = [
   { width: 116, top: 76, left: 68, rotate: -24 },
@@ -21,6 +21,8 @@ export default function EventList() {
   const [error, setError] = useState(null);
   const [cart, setCart] = useState([]);
   const [isClient, setIsClient] = useState(false);
+  const [discounts, setDiscounts] = useState([]);
+  const [discountApplied, setDiscountApplied] = useState(null);
   const router = useRouter();
 
   const supabase = createClientComponentClient();
@@ -31,28 +33,39 @@ export default function EventList() {
         setLoading(true);
         setError(null);
 
-        const { data: eventosData, error: eventosError } = await supabase
-          .from('eventos')
-          .select(`
-            id,
-            nombre,
-            fecha,
-            descripcion,
-            portada_url,
-            marca_agua_url,
-            marca_agua_opacidad,
-            marca_agua_posicion,
-            fotos: fotos(
+        // Cargar eventos y descuentos en paralelo
+        const [
+          { data: eventosData, error: eventosError },
+          { data: descuentosData }
+        ] = await Promise.all([
+          supabase
+            .from('eventos')
+            .select(`
               id,
-              url,
-              precio,
               nombre,
-              ruta_original,
-              ruta_procesada
-            )
-          `)
-          .order('fecha', { ascending: false })
-          .lte('fecha', new Date().toISOString());
+              fecha,
+              descripcion,
+              portada_url,
+              marca_agua_url,
+              marca_agua_opacidad,
+              marca_agua_posicion,
+              fotos: fotos(
+                id,
+                url,
+                precio,
+                nombre,
+                ruta_original,
+                ruta_procesada
+              )
+            `)
+            .order('fecha', { ascending: false })
+            .lte('fecha', new Date().toISOString()),
+          
+          supabase
+            .from('descuentos')
+            .select('*')
+            .order('cantidad_minima', { ascending: true })
+        ]);
 
         if (eventosError) throw eventosError;
 
@@ -77,6 +90,7 @@ export default function EventList() {
         });
 
         setEvents(processedEvents);
+        setDiscounts(descuentosData || []);
       } catch (err) {
         console.error('Error al cargar eventos:', err);
         setError('No se pudieron cargar los eventos. Por favor intenta más tarde.');
@@ -94,6 +108,7 @@ export default function EventList() {
     loadEvents();
   }, [supabase]);
 
+  // Persistencia del carrito
   useEffect(() => {
     if (cart.length > 0) {
       localStorage.setItem('photoCart', JSON.stringify(cart));
@@ -102,12 +117,38 @@ export default function EventList() {
     }
   }, [cart]);
 
+  // Aplicar descuentos cuando cambia el carrito
+  useEffect(() => {
+    if (cart.length > 0 && discounts.length > 0) {
+      // Ordenar descuentos de mayor a menor cantidad mínima
+      const sortedDiscounts = [...discounts].sort((a, b) => b.cantidad_minima - a.cantidad_minima);
+      
+      // Encontrar el descuento aplicable
+      const applicableDiscount = sortedDiscounts.find(d => cart.length >= d.cantidad_minima);
+      
+      setDiscountApplied(applicableDiscount || null);
+    } else {
+      setDiscountApplied(null);
+    }
+  }, [cart, discounts]);
+
   const openEventPhotos = (eventId) => {
     router.push(`/eventos/${eventId}/Fotos`);
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return cart.reduce((total, item) => total + (item.price || 0), 0);
+  };
+
+  const calculateDiscount = () => {
+    if (!discountApplied) return 0;
+    return calculateSubtotal() * (discountApplied.porcentaje / 100);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return subtotal - discount;
   };
 
   const handleCheckout = () => {
@@ -119,6 +160,13 @@ export default function EventList() {
     const queryParams = new URLSearchParams();
     queryParams.append('items', JSON.stringify(cart));
     queryParams.append('total', calculateTotal().toFixed(2));
+    queryParams.append('discount', calculateDiscount().toFixed(2));
+    queryParams.append('subtotal', calculateSubtotal().toFixed(2));
+    
+    if (discountApplied) {
+      queryParams.append('discount_id', discountApplied.id);
+      queryParams.append('discount_name', `Descuento por ${discountApplied.cantidad_minima}+ fotos (${discountApplied.porcentaje}%)`);
+    }
 
     router.push(`/checkout?${queryParams.toString()}`);
   };
@@ -207,12 +255,46 @@ export default function EventList() {
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 300 }}
-            className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
+            className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50 min-w-[280px]"
           >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
-              <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+            <div className="mb-3">
+              <h3 className="font-bold text-gray-800 mb-2">Carrito ({cart.length})</h3>
+              
+              <div className="space-y-1 mb-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal:</span>
+                  <span>${calculateSubtotal().toFixed(2)}</span>
+                </div>
+                
+                {discountApplied && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span className="flex items-center gap-1">
+                      <FiPercent size={12} />
+                      Descuento ({discountApplied.porcentaje}%):
+                    </span>
+                    <span>-${calculateDiscount().toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="border-t border-gray-200 my-1"></div>
+                
+                <div className="flex justify-between font-bold text-black">
+                  <span>Total:</span>
+                  <span>${calculateTotal().toFixed(2)}</span>
+                </div>
+              </div>
+              
+              {discounts.length > 0 && !discountApplied && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {discounts.map(d => (
+                    <p key={d.id}>
+                      {d.cantidad_minima}+ fotos: {d.porcentaje}% de descuento
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
+            
             <button
               onClick={handleCheckout}
               className="w-full bg-black text-white py-2.5 rounded-lg hover:bg-gray-800 transition-all duration-300 flex items-center justify-center gap-2"

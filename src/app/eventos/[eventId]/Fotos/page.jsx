@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'; // Agregamos useMemo aquí
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
-import { FiCalendar, FiHome } from 'react-icons/fi';
+import { FiCalendar, FiHome, FiPercent } from 'react-icons/fi';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { FiX, FiShoppingCart, FiChevronLeft, FiChevronRight, FiMaximize, FiMinimize, FiArrowUp } from 'react-icons/fi';
-  
 
 // Componente Thumbnail optimizado con animaciones CSS nativas
 const PhotoThumbnail = memo(({ photo, index, openPhotoViewer, cart, toggleCartItem, hasWatermark, getOptimizedImageUrl }) => {
@@ -302,6 +301,8 @@ export default function EventPhotos() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [discounts, setDiscounts] = useState([]);
+  const [discountApplied, setDiscountApplied] = useState(null);
 
   // Memoizar la función de URL con useMemo
   const getOptimizedImageUrl = useMemo(() => {
@@ -347,15 +348,22 @@ export default function EventPhotos() {
             hasWatermark: !!eventoData.marca_agua_url
           });
 
-          // Carga las fotos después de mostrar la info básica
+          // Carga las fotos y descuentos después de mostrar la info básica
           const { data: fotosData } = await supabase
             .from('fotos')
             .select('id, url, precio, nombre, ruta_original, ruta_procesada')
             .eq('evento_id', eventId)
             .order('created_at', { ascending: true });
 
+          const { data: descuentosData } = await supabase
+            .from('descuentos')
+            .select('*')
+            .eq('evento_id', eventId)
+            .order('cantidad_minima', { ascending: true });
+
           if (isMounted) {
             setEventPhotos(fotosData || []);
+            setDiscounts(descuentosData || []);
           }
         }
       } catch (err) {
@@ -411,6 +419,21 @@ export default function EventPhotos() {
     }
   }, [cart]);
 
+  // Aplicar descuentos cuando cambia el carrito
+  useEffect(() => {
+    if (cart.length > 0 && discounts.length > 0) {
+      // Ordenar descuentos de mayor a menor cantidad mínima
+      const sortedDiscounts = [...discounts].sort((a, b) => b.cantidad_minima - a.cantidad_minima);
+      
+      // Encontrar el descuento aplicable
+      const applicableDiscount = sortedDiscounts.find(d => cart.length >= d.cantidad_minima);
+      
+      setDiscountApplied(applicableDiscount || null);
+    } else {
+      setDiscountApplied(null);
+    }
+  }, [cart, discounts]);
+
   // Funciones memoizadas
   const openPhotoViewer = useCallback((photo, index) => {
     setSelectedPhoto(photo);
@@ -457,9 +480,20 @@ export default function EventPhotos() {
     });
   }, [event, currentPhotoIndex]);
 
-  const calculateTotal = useCallback(() => {
+  const calculateSubtotal = useCallback(() => {
     return cart.reduce((total, item) => total + (item.price || 0), 0);
   }, [cart]);
+
+  const calculateDiscount = useCallback(() => {
+    if (!discountApplied) return 0;
+    return calculateSubtotal() * (discountApplied.porcentaje / 100);
+  }, [discountApplied, calculateSubtotal]);
+
+  const calculateTotal = useCallback(() => {
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return subtotal - discount;
+  }, [calculateSubtotal, calculateDiscount]);
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) {
@@ -470,9 +504,16 @@ export default function EventPhotos() {
     const queryParams = new URLSearchParams();
     queryParams.append('items', JSON.stringify(cart));
     queryParams.append('total', calculateTotal().toFixed(2));
+    queryParams.append('discount', calculateDiscount().toFixed(2));
+    queryParams.append('subtotal', calculateSubtotal().toFixed(2));
+    
+    if (discountApplied) {
+      queryParams.append('discount_id', discountApplied.id);
+      queryParams.append('discount_name', `Descuento por ${discountApplied.cantidad_minima}+ fotos (${discountApplied.porcentaje}%)`);
+    }
 
     router.push(`/checkout?${queryParams.toString()}`);
-  }, [cart, calculateTotal, router]);
+  }, [cart, calculateTotal, calculateDiscount, calculateSubtotal, discountApplied, router]);
 
   const closeModal = useCallback(() => {
     router.push('/eventos');
@@ -589,15 +630,49 @@ export default function EventPhotos() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="fixed bottom-6 right-6 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 z-50"
+            className="fixed bottom-6 right-6 bg-gray-800 p-4 rounded-xl shadow-2xl border border-gray-700 z-50 min-w-[280px]"
           >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-800">Carrito ({cart.length})</h3>
-              <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+            <div className="mb-3">
+              <h3 className="font-bold text-white mb-2">Carrito ({cart.length})</h3>
+              
+              <div className="space-y-1 mb-2">
+                <div className="flex justify-between text-sm text-gray-300">
+                  <span>Subtotal:</span>
+                  <span>${calculateSubtotal().toFixed(2)}</span>
+                </div>
+                
+                {discountApplied && (
+                  <div className="flex justify-between text-sm text-green-400">
+                    <span className="flex items-center gap-1">
+                      <FiPercent size={12} />
+                      Descuento ({discountApplied.porcentaje}%):
+                    </span>
+                    <span>-${calculateDiscount().toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="border-t border-gray-600 my-1"></div>
+                
+                <div className="flex justify-between font-bold text-white">
+                  <span>Total:</span>
+                  <span>${calculateTotal().toFixed(2)}</span>
+                </div>
+              </div>
+              
+              {discounts.length > 0 && !discountApplied && (
+                <div className="text-xs text-gray-400 mt-1">
+                  {discounts.map(d => (
+                    <p key={d.id}>
+                      {d.cantidad_minima}+ fotos: {d.porcentaje}% de descuento
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
+            
             <button
               onClick={handleCheckout}
-              className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
             >
               <FiShoppingCart />
               Ir a pagar
